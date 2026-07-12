@@ -101,11 +101,15 @@ export function ServicesPage() {
 
   const formFields = (form: ReturnType<typeof useForm<ServiceFormData>>) => (
     <div className="space-y-4">
-      <Input label="Nombre" error={form.formState.errors.name?.message} {...form.register('name')} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Input label="Nombre" error={form.formState.errors.name?.message} {...form.register('name')} />
+        <Input label="Categoría" {...form.register('category')} />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Input label="Duración (minutos)" type="number" error={form.formState.errors.durationMinutes?.message} {...form.register('durationMinutes', { valueAsNumber: true })} />
+        <Input label="Precio" type="number" step="0.01" error={form.formState.errors.price?.message} {...form.register('price', { valueAsNumber: true })} />
+      </div>
       <Input label="Descripción" {...form.register('description')} />
-      <Input label="Duración (minutos)" type="number" error={form.formState.errors.durationMinutes?.message} {...form.register('durationMinutes', { valueAsNumber: true })} />
-      <Input label="Precio" type="number" step="0.01" error={form.formState.errors.price?.message} {...form.register('price', { valueAsNumber: true })} />
-      <Input label="Categoría" {...form.register('category')} />
     </div>
   );
 

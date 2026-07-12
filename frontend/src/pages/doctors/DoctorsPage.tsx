@@ -137,20 +137,22 @@ export function DoctorsPage() {
             <Input label="Especialidad" error={createForm.formState.errors.specialty?.message} {...createForm.register('specialty')} />
             <Input label="Cédula Profesional" {...createForm.register('licenseNumber')} />
           </div>
-          <Input label="Foto URL" {...createForm.register('photoUrl')} />
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Color del calendario</label>
-            <input
-              type="color"
-              className="h-10 w-20 rounded-lg border border-gray-300 cursor-pointer"
-              {...createForm.register('color')}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="Foto URL" {...createForm.register('photoUrl')} />
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Color del calendario</label>
+              <input
+                type="color"
+                className="h-10 w-20 rounded-lg border border-gray-300 cursor-pointer"
+                {...createForm.register('color')}
+              />
+            </div>
           </div>
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">Biografía</label>
             <textarea
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              rows={3}
+              rows={2}
               {...createForm.register('bio')}
             />
           </div>
@@ -170,20 +172,22 @@ export function DoctorsPage() {
             <Input label="Especialidad" error={editForm.formState.errors.specialty?.message} {...editForm.register('specialty')} />
             <Input label="Cédula Profesional" {...editForm.register('licenseNumber')} />
           </div>
-          <Input label="Foto URL" {...editForm.register('photoUrl')} />
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Color del calendario</label>
-            <input
-              type="color"
-              className="h-10 w-20 rounded-lg border border-gray-300 cursor-pointer"
-              {...editForm.register('color')}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="Foto URL" {...editForm.register('photoUrl')} />
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Color del calendario</label>
+              <input
+                type="color"
+                className="h-10 w-20 rounded-lg border border-gray-300 cursor-pointer"
+                {...editForm.register('color')}
+              />
+            </div>
           </div>
           <div className="space-y-1">
             <label className="block text-sm font-medium text-gray-700">Biografía</label>
             <textarea
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              rows={3}
+              rows={2}
               {...editForm.register('bio')}
             />
           </div>

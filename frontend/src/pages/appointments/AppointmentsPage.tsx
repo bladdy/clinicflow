@@ -262,55 +262,57 @@ export function AppointmentsPage() {
         </div>
       )}
 
-      <Modal isOpen={showCreateModal} onClose={() => { setShowCreateModal(false); setEditingAppointment(null); }} title={editingAppointment ? 'Editar Cita' : 'Nueva Cita'} size="lg">
+      <Modal isOpen={showCreateModal} onClose={() => { setShowCreateModal(false); setEditingAppointment(null); }} title={editingAppointment ? 'Editar Cita' : 'Nueva Cita'} size="xl">
         <form onSubmit={createForm.handleSubmit(handleCreate)} className="space-y-4">
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Paciente</label>
-            <select
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              {...createForm.register('patientId')}
-            >
-              <option value="">Seleccionar paciente</option>
-              {patients.map((p) => (
-                <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
-              ))}
-            </select>
-            {createForm.formState.errors.patientId && (
-              <p className="text-sm text-red-600">{createForm.formState.errors.patientId.message}</p>
-            )}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Paciente</label>
+              <select
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                {...createForm.register('patientId')}
+              >
+                <option value="">Seleccionar paciente</option>
+                {patients.map((p) => (
+                  <option key={p.id} value={p.id}>{p.firstName} {p.lastName}</option>
+                ))}
+              </select>
+              {createForm.formState.errors.patientId && (
+                <p className="text-sm text-red-600">{createForm.formState.errors.patientId.message}</p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Doctor</label>
+              <select
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                {...createForm.register('doctorId')}
+              >
+                <option value="">Seleccionar doctor</option>
+                {doctors.map((d) => (
+                  <option key={d.id} value={d.id}>{d.fullName}</option>
+                ))}
+              </select>
+              {createForm.formState.errors.doctorId && (
+                <p className="text-sm text-red-600">{createForm.formState.errors.doctorId.message}</p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">Servicio</label>
+              <select
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                {...createForm.register('serviceId')}
+              >
+                <option value="">Seleccionar servicio</option>
+                {services.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+              {createForm.formState.errors.serviceId && (
+                <p className="text-sm text-red-600">{createForm.formState.errors.serviceId.message}</p>
+              )}
+            </div>
           </div>
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Doctor</label>
-            <select
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              {...createForm.register('doctorId')}
-            >
-              <option value="">Seleccionar doctor</option>
-              {doctors.map((d) => (
-                <option key={d.id} value={d.id}>{d.fullName}</option>
-              ))}
-            </select>
-            {createForm.formState.errors.doctorId && (
-              <p className="text-sm text-red-600">{createForm.formState.errors.doctorId.message}</p>
-            )}
-          </div>
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">Servicio</label>
-            <select
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              {...createForm.register('serviceId')}
-            >
-              <option value="">Seleccionar servicio</option>
-              {services.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-            {createForm.formState.errors.serviceId && (
-              <p className="text-sm text-red-600">{createForm.formState.errors.serviceId.message}</p>
-            )}
-          </div>
-          <Input label="Fecha" type="date" error={createForm.formState.errors.appointmentDate?.message} {...createForm.register('appointmentDate')} />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <Input label="Fecha" type="date" error={createForm.formState.errors.appointmentDate?.message} {...createForm.register('appointmentDate')} />
             <Input label="Hora inicio" type="time" error={createForm.formState.errors.startTime?.message} {...createForm.register('startTime')} />
             <Input label="Hora fin" type="time" error={createForm.formState.errors.endTime?.message} {...createForm.register('endTime')} />
           </div>
@@ -319,7 +321,7 @@ export function AppointmentsPage() {
             <label className="block text-sm font-medium text-gray-700">Notas</label>
             <textarea
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              rows={3}
+              rows={2}
               {...createForm.register('notes')}
             />
           </div>

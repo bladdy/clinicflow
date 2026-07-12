@@ -107,14 +107,16 @@ export function KnowledgeBasePage() {
 
   const formFields = (form: ReturnType<typeof useForm<KnowledgeArticleFormData>>) => (
     <div className="space-y-4">
-      <Input label="Título" error={form.formState.errors.title?.message} {...form.register('title')} />
-      <Input label="Categoría" {...form.register('category')} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Input label="Título" error={form.formState.errors.title?.message} {...form.register('title')} />
+        <Input label="Categoría" {...form.register('category')} />
+      </div>
       <Input label="Palabras Clave" placeholder="separadas por coma" {...form.register('keywords')} />
       <div className="space-y-1">
         <label className="block text-sm font-medium text-gray-700">Contenido</label>
         <textarea
           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          rows={6}
+          rows={4}
           {...form.register('content')}
         />
         {form.formState.errors.content && (

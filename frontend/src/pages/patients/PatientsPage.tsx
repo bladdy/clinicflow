@@ -58,7 +58,7 @@ export function PatientsPage() {
       lastName: patient.lastName,
       phone: patient.phone,
       email: patient.email ?? '',
-      dateOfBirth: patient.dateOfBirth ?? '',
+      dateOfBirth: patient.dateOfBirth ? patient.dateOfBirth.split('T')[0] : '',
       gender: patient.gender ?? '',
       address: patient.address ?? '',
       notes: patient.notes ?? '',
@@ -104,39 +104,47 @@ export function PatientsPage() {
 
   const formFields = (form: ReturnType<typeof useForm<PatientFormData>>) => (
     <div className="space-y-4">
-      <Input label="Nombre" error={form.formState.errors.firstName?.message} {...form.register('firstName')} />
-      <Input label="Apellido" error={form.formState.errors.lastName?.message} {...form.register('lastName')} />
-      <Input label="Teléfono" error={form.formState.errors.phone?.message} {...form.register('phone')} />
-      <Input label="Email" type="email" error={form.formState.errors.email?.message} {...form.register('email')} />
-      <Input label="Fecha de Nacimiento" type="date" {...form.register('dateOfBirth')} />
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Género</label>
-        <select
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          {...form.register('gender')}
-        >
-          <option value="">Seleccionar</option>
-          <option value="Male">Masculino</option>
-          <option value="Female">Femenino</option>
-          <option value="Other">Otro</option>
-        </select>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Input label="Nombre" error={form.formState.errors.firstName?.message} {...form.register('firstName')} />
+        <Input label="Apellido" error={form.formState.errors.lastName?.message} {...form.register('lastName')} />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Input label="Teléfono" error={form.formState.errors.phone?.message} {...form.register('phone')} />
+        <Input label="Email" type="email" error={form.formState.errors.email?.message} {...form.register('email')} />
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Input label="Fecha de Nacimiento" type="date" {...form.register('dateOfBirth')} />
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">Género</label>
+          <select
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            {...form.register('gender')}
+          >
+            <option value="">Seleccionar</option>
+            <option value="Male">Masculino</option>
+            <option value="Female">Femenino</option>
+            <option value="Other">Otro</option>
+          </select>
+        </div>
       </div>
       <Input label="Dirección" {...form.register('address')} />
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Notas</label>
-        <textarea
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          rows={3}
-          {...form.register('notes')}
-        />
-      </div>
-      <div className="space-y-1">
-        <label className="block text-sm font-medium text-gray-700">Historial Médico</label>
-        <textarea
-          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-          rows={3}
-          {...form.register('medicalHistory')}
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">Notas</label>
+          <textarea
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            rows={2}
+            {...form.register('notes')}
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="block text-sm font-medium text-gray-700">Historial Médico</label>
+          <textarea
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            rows={2}
+            {...form.register('medicalHistory')}
+          />
+        </div>
       </div>
     </div>
   );

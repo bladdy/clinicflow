@@ -104,10 +104,14 @@ export function WhatsAppSettingsPage() {
 
       <Modal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} title="Nueva Instancia WhatsApp" size="lg">
         <form onSubmit={createForm.handleSubmit(handleCreate)} className="space-y-4">
-          <Input label="Nombre de Instancia" error={createForm.formState.errors.instanceName?.message} {...createForm.register('instanceName')} />
-          <Input label="API URL" placeholder="https://api.example.com" error={createForm.formState.errors.apiUrl?.message} {...createForm.register('apiUrl')} />
-          <Input label="API Key" type="password" error={createForm.formState.errors.apiKey?.message} {...createForm.register('apiKey')} />
-          <Input label="Número de Teléfono" placeholder="+521234567890" error={createForm.formState.errors.phoneNumber?.message} {...createForm.register('phoneNumber')} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="Nombre de Instancia" error={createForm.formState.errors.instanceName?.message} {...createForm.register('instanceName')} />
+            <Input label="Número de Teléfono" placeholder="+521234567890" error={createForm.formState.errors.phoneNumber?.message} {...createForm.register('phoneNumber')} />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Input label="API URL" placeholder="https://api.example.com" error={createForm.formState.errors.apiUrl?.message} {...createForm.register('apiUrl')} />
+            <Input label="API Key" type="password" error={createForm.formState.errors.apiKey?.message} {...createForm.register('apiKey')} />
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="secondary" type="button" onClick={() => setShowCreateModal(false)}>Cancelar</Button>
             <Button type="submit" isLoading={createMutation.isPending}>Guardar</Button>
