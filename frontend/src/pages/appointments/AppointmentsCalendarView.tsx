@@ -119,7 +119,7 @@ export function AppointmentsCalendarView({ viewType, currentDate, filters, onDat
     }
 
     return (
-      <div className="fc-event-content-wrapper px-2 py-1 relative pl-3" style={{ backgroundColor: hexToRgba(color, 0.25) }}>
+      <div className="fc-event-content-wrapper px-2 relative" style={{ backgroundColor: hexToRgba(color, 0.25) }}>
         <div
           className="absolute left-0 top-0 bottom-0 w-1 rounded-l"
           style={{ backgroundColor: color }}
@@ -148,7 +148,8 @@ export function AppointmentsCalendarView({ viewType, currentDate, filters, onDat
   const handleEventDrop = useCallback(async (arg: EventDropArg) => {
     setHoveredEvent(null);
     const a = arg.event.extendedProps.appointment as Appointment;
-    const newDate = toDateStr(arg.event.start!);
+    const ds = arg.event.start!;
+    const newDate = `${ds.getFullYear()}-${String(ds.getMonth() + 1).padStart(2, '0')}-${String(ds.getDate()).padStart(2, '0')}`;
     const newStart = toTimeStr(arg.event.start!.getHours(), arg.event.start!.getMinutes());
     const newEnd = toTimeStr(arg.event.end!.getHours(), arg.event.end!.getMinutes());
     try {
@@ -162,7 +163,8 @@ export function AppointmentsCalendarView({ viewType, currentDate, filters, onDat
   const handleEventResize = useCallback(async (arg: EventResizeArg) => {
     setHoveredEvent(null);
     const a = arg.event.extendedProps.appointment as Appointment;
-    const newDate = toDateStr(arg.event.start!);
+    const ds = arg.event.start!;
+    const newDate = `${ds.getFullYear()}-${String(ds.getMonth() + 1).padStart(2, '0')}-${String(ds.getDate()).padStart(2, '0')}`;
     const newStart = toTimeStr(arg.event.start!.getHours(), arg.event.start!.getMinutes());
     const newEnd = toTimeStr(arg.event.end!.getHours(), arg.event.end!.getMinutes());
     try {
