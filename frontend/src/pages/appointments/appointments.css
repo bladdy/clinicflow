@@ -1,0 +1,147 @@
+.fc {
+  --fc-bg-event: transparent;
+  --fc-border-color: #e5e7eb;
+  --fc-button-bg-color: #ffffff;
+  --fc-button-border-color: #d1d5db;
+  --fc-button-hover-bg-color: #f3f4f6;
+  --fc-button-hover-border-color: #9ca3af;
+  --fc-button-active-bg-color: #2563eb;
+  --fc-button-active-border-color: #2563eb;
+  --fc-today-bg-color: #eff6ff;
+  --fc-page-bg-color: #ffffff;
+  --fc-neutral-bg-color: #f9fafb;
+  --fc-event-border-color: transparent;
+  font-family: inherit;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.fc .fc-button {
+  font-size: 0.8125rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-weight: 500;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+  background-color: var(--fc-button-active-bg-color);
+  border-color: var(--fc-button-active-border-color);
+}
+
+.fc .fc-timegrid-slot {
+  height: 2rem;
+}
+
+.fc .fc-timegrid-slot-label-cushion {
+  font-size: 0.6875rem;
+  color: #6b7280;
+}
+
+.fc .fc-col-header-cell-cushion {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #374151;
+  padding: 0.5rem 0;
+}
+
+.fc .fc-daygrid-day-number {
+  font-size: 0.8125rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.fc .fc-scrollgrid {
+  border-radius: 0.5rem;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+.fc .fc-scrollgrid thead th {
+  background: #f9fafb;
+}
+
+.fc .fc-timegrid-now-indicator-line {
+  border-color: #ef4444;
+  border-width: 2px;
+}
+
+.fc .fc-timegrid-now-indicator-arrow {
+  border-color: #ef4444;
+}
+
+.fc .fc-timegrid-now-indicator-container {
+  width: 0;
+}
+
+/* Appointment event card — base */
+.fc-event {
+  border: none !important;
+  border-radius: 0.375rem !important;
+  cursor: grab !important;
+  user-select: none;
+}
+
+.fc-event:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 5;
+}
+
+.fc-event-dragging {
+  cursor: grabbing !important;
+  opacity: 0.9;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  user-select: none;
+}
+
+/* Time-grid events — let FullCalendar handle column layout */
+.fc .fc-timegrid-event {
+  margin-top: 1px !important;
+  margin-bottom: 1px !important;
+  border-radius: 0.375rem !important;
+}
+
+/* Month view event chips */
+.fc .fc-daygrid-event {
+  border-radius: 0.25rem !important;
+  margin: 1px 2px;
+  padding: 1px 4px !important;
+  font-size: 0.6875rem;
+  line-height: 1.3;
+}
+
+/* List view overrides */
+.fc .fc-list-event:hover td {
+  background: #f3f4f6;
+}
+
+.fc .fc-list-event-title a {
+  font-weight: 500;
+}
+
+.fc .fc-list-event-graphic {
+  padding-right: 8px;
+}
+
+/* More events popover */
+.fc-popover {
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  border: 1px solid #e5e7eb;
+}
+
+.fc-popover-header {
+  background: #f9fafb;
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Slot labels */
+.fc .fc-timegrid-axis-cushion {
+  font-size: 0.6875rem;
+  color: #9ca3af;
+}

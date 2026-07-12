@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DentalBot.Api/DentalBot.Api.csproj" />
+    <Project Path="src/DentalBot.Application/DentalBot.Application.csproj" />
+    <Project Path="src/DentalBot.Domain/DentalBot.Domain.csproj" />
+    <Project Path="src/DentalBot.Infrastructure/DentalBot.Infrastructure.csproj" />
+    <Project Path="src/DentalBot.Shared/DentalBot.Shared.csproj" />
+  </Folder>
+</Solution>
