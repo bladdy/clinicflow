@@ -175,6 +175,14 @@ export interface WhatsAppInstance {
   apiKey: string;
   phoneNumber: string;
   isActive: boolean;
+  webhookUrl?: string;
+}
+
+export interface WhatsAppInstanceDetail extends WhatsAppInstance {
+  connectionState: string;
+  webhookConfigured: boolean;
+  webhookEvents: string[];
+  createdAt: string;
 }
 
 export interface KnowledgeArticle {

@@ -15,19 +15,24 @@ public class WhatsAppController : ControllerBase
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWhatsAppService _whatsAppService;
     private readonly IAIService _aiService;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<WhatsAppController> _logger;
 
     public WhatsAppController(
         IUnitOfWork unitOfWork,
         IWhatsAppService whatsAppService,
         IAIService aiService,
+        IConfiguration configuration,
         ILogger<WhatsAppController> logger)
     {
         _unitOfWork = unitOfWork;
         _whatsAppService = whatsAppService;
         _aiService = aiService;
+        _configuration = configuration;
         _logger = logger;
     }
+
+    #region Webhook
 
     [HttpPost("webhook")]
     [AllowAnonymous]
@@ -42,10 +47,19 @@ public class WhatsAppController : ControllerBase
                 return Ok();
 
             var eventType = eventProp.GetString();
+            _logger.LogInformation("Webhook event received: {EventType}", eventType);
 
-            if (eventType == "messages.upsert")
+            switch (eventType)
             {
-                await HandleIncomingMessage(doc.RootElement);
+                case "MESSAGES_UPSERT":
+                    await HandleIncomingMessage(doc.RootElement);
+                    break;
+                case "CONNECTION_UPDATE":
+                    await HandleConnectionUpdate(doc.RootElement);
+                    break;
+                case "QRCODE_UPDATED":
+                    _logger.LogInformation("QR code updated event received");
+                    break;
             }
 
             return Ok();
@@ -56,6 +70,10 @@ public class WhatsAppController : ControllerBase
             return Ok();
         }
     }
+
+    #endregion
+
+    #region Instances CRUD
 
     [HttpGet("instances")]
     public async Task<ActionResult<ApiResponse<List<WhatsAppInstance>>>> GetInstances()
@@ -68,6 +86,36 @@ public class WhatsAppController : ControllerBase
             w => w.CompanyId == companyId.Value && !w.IsDeleted);
 
         return Ok(ApiResponse<List<WhatsAppInstance>>.Ok(instances.ToList()));
+    }
+
+    [HttpGet("instances/{id:guid}")]
+    public async Task<ActionResult<ApiResponse<WhatsAppInstanceDetailDto>>> GetInstance(Guid id)
+    {
+        var instance = await _unitOfWork.WhatsAppInstances.GetByIdAsync(id);
+        if (instance == null)
+            return NotFound(ApiResponse<WhatsAppInstanceDetailDto>.Fail("Instancia no encontrada"));
+
+        var connectionState = await _whatsAppService.GetConnectionStateAsync(id);
+        var webhookInfo = await _whatsAppService.GetWebhookInfoAsync(id);
+
+        var dto = new WhatsAppInstanceDetailDto
+        {
+            Id = instance.Id,
+            CompanyId = instance.CompanyId,
+            BranchId = instance.BranchId,
+            InstanceName = instance.InstanceName,
+            ApiUrl = instance.ApiUrl,
+            ApiKey = instance.ApiKey,
+            PhoneNumber = instance.PhoneNumber,
+            IsActive = instance.IsActive,
+            WebhookUrl = instance.WebhookUrl,
+            ConnectionState = connectionState,
+            WebhookConfigured = webhookInfo != null && webhookInfo.Enabled,
+            WebhookEvents = webhookInfo?.Events ?? [],
+            CreatedAt = instance.CreatedAt
+        };
+
+        return Ok(ApiResponse<WhatsAppInstanceDetailDto>.Ok(dto));
     }
 
     [HttpPost("instances")]
@@ -92,8 +140,38 @@ public class WhatsAppController : ControllerBase
         await _unitOfWork.WhatsAppInstances.AddAsync(instance);
         await _unitOfWork.SaveChangesAsync();
 
+        var evolutionCreated = await _whatsAppService.CreateEvolutionInstanceAsync(request.ApiUrl, request.ApiKey, request.InstanceName);
+        if (!evolutionCreated)
+        {
+            instance.IsDeleted = true;
+            instance.DeletedAt = DateTime.UtcNow;
+            _unitOfWork.WhatsAppInstances.Update(instance);
+            await _unitOfWork.SaveChangesAsync();
+            return BadRequest(ApiResponse<WhatsAppInstance>.Fail(
+                "No se pudo crear la instancia en Evolution API. Verifica la URL y API Key."));
+        }
+
+        var webhookUrl = GetWebhookBaseUrl();
+        await _whatsAppService.ConfigureWebhookAsync(instance.Id, webhookUrl);
+
         return Ok(ApiResponse<WhatsAppInstance>.Ok(instance, "Instancia creada exitosamente"));
     }
+
+    [HttpDelete("instances/{id:guid}")]
+    public async Task<ActionResult<ApiResponse<object>>> DeleteInstance(Guid id)
+    {
+        var instance = await _unitOfWork.WhatsAppInstances.GetByIdAsync(id);
+        if (instance == null)
+            return NotFound(ApiResponse<object>.Fail("Instancia no encontrada"));
+
+        await _whatsAppService.DeleteInstanceAsync(id);
+
+        return Ok(ApiResponse<object>.Ok(null!, "Instancia eliminada"));
+    }
+
+    #endregion
+
+    #region Instance Actions
 
     [HttpGet("instances/{id:guid}/status")]
     public async Task<ActionResult<ApiResponse<object>>> GetInstanceStatus(Guid id)
@@ -102,8 +180,105 @@ public class WhatsAppController : ControllerBase
         if (instance == null)
             return NotFound(ApiResponse<object>.Fail("Instancia no encontrada"));
 
-        var isConnected = await _whatsAppService.CheckConnectionAsync(id);
-        return Ok(ApiResponse<object>.Ok(new { isConnected, instanceId = id }));
+        var connectionState = await _whatsAppService.GetConnectionStateAsync(id);
+        var isConnected = connectionState == "open";
+
+        return Ok(ApiResponse<object>.Ok(new
+        {
+            isConnected,
+            connectionState,
+            instanceId = id
+        }));
+    }
+
+    [HttpGet("instances/{id:guid}/qrcode")]
+    public async Task<ActionResult<ApiResponse<string>>> GetQrCode(Guid id)
+    {
+        var instance = await _unitOfWork.WhatsAppInstances.GetByIdAsync(id);
+        if (instance == null)
+            return NotFound(ApiResponse<string>.Fail("Instancia no encontrada"));
+
+        var qr = await _whatsAppService.GetQrCodeAsync(id);
+        return Ok(ApiResponse<string>.Ok(qr));
+    }
+
+    [HttpPost("instances/{id:guid}/restart")]
+    public async Task<ActionResult<ApiResponse<object>>> RestartInstance(Guid id)
+    {
+        var instance = await _unitOfWork.WhatsAppInstances.GetByIdAsync(id);
+        if (instance == null)
+            return NotFound(ApiResponse<object>.Fail("Instancia no encontrada"));
+
+        var success = await _whatsAppService.RestartInstanceAsync(id);
+        if (!success)
+            return BadRequest(ApiResponse<object>.Fail("No se pudo reiniciar la instancia"));
+
+        return Ok(ApiResponse<object>.Ok(null!, "Instancia reiniciada"));
+    }
+
+    [HttpPost("instances/{id:guid}/logout")]
+    public async Task<ActionResult<ApiResponse<object>>> LogoutInstance(Guid id)
+    {
+        var instance = await _unitOfWork.WhatsAppInstances.GetByIdAsync(id);
+        if (instance == null)
+            return NotFound(ApiResponse<object>.Fail("Instancia no encontrada"));
+
+        var success = await _whatsAppService.LogoutAsync(id);
+        if (!success)
+            return BadRequest(ApiResponse<object>.Fail("No se pudo desconectar la instancia"));
+
+        return Ok(ApiResponse<object>.Ok(null!, "Sesión cerrada"));
+    }
+
+    [HttpGet("instances/{id:guid}/info")]
+    public async Task<ActionResult<ApiResponse<EvolutionInstanceInfo>>> GetInstanceInfo(Guid id)
+    {
+        var instance = await _unitOfWork.WhatsAppInstances.GetByIdAsync(id);
+        if (instance == null)
+            return NotFound(ApiResponse<EvolutionInstanceInfo>.Fail("Instancia no encontrada"));
+
+        var info = await _whatsAppService.GetInstanceInfoAsync(id);
+        if (info == null)
+            return NotFound(ApiResponse<EvolutionInstanceInfo>.Fail("No se pudo obtener información de Evolution API"));
+
+        return Ok(ApiResponse<EvolutionInstanceInfo>.Ok(info));
+    }
+
+    [HttpGet("instances/{id:guid}/webhook")]
+    public async Task<ActionResult<ApiResponse<object>>> GetWebhookStatus(Guid id)
+    {
+        var instance = await _unitOfWork.WhatsAppInstances.GetByIdAsync(id);
+        if (instance == null)
+            return NotFound(ApiResponse<object>.Fail("Instancia no encontrada"));
+
+        var webhookInfo = await _whatsAppService.GetWebhookInfoAsync(id);
+
+        return Ok(ApiResponse<object>.Ok(new
+        {
+            configured = webhookInfo != null,
+            enabled = webhookInfo?.Enabled ?? false,
+            url = webhookInfo?.WebhookUrl ?? "",
+            events = webhookInfo?.Events ?? [],
+            by = webhookInfo?.By ?? "",
+            savedUrl = instance.WebhookUrl ?? ""
+        }));
+    }
+
+    [HttpPost("instances/{id:guid}/webhook/fix")]
+    public async Task<ActionResult<ApiResponse<object>>> FixWebhook(Guid id)
+    {
+        var instance = await _unitOfWork.WhatsAppInstances.GetByIdAsync(id);
+        if (instance == null)
+            return NotFound(ApiResponse<object>.Fail("Instancia no encontrada"));
+
+        var webhookUrl = GetWebhookBaseUrl();
+        var fixed_ = await _whatsAppService.FixWebhookAsync(id, webhookUrl);
+
+        return Ok(ApiResponse<object>.Ok(new
+        {
+            configured = fixed_,
+            url = webhookUrl
+        }, fixed_ ? "Webhook configurado correctamente" : "No se pudo configurar el webhook"));
     }
 
     [HttpPost("instances/{id:guid}/send")]
@@ -115,6 +290,44 @@ public class WhatsAppController : ControllerBase
 
         await _whatsAppService.SendMessageAsync(id, request.PhoneNumber, request.Message);
         return Ok(ApiResponse<object>.Ok(null!, "Mensaje enviado"));
+    }
+
+    #endregion
+
+    #region Private Methods
+
+    private string GetWebhookBaseUrl()
+    {
+        return _configuration["WhatsApp:WebhookBaseUrl"] ?? $"{Request.Scheme}://{Request.Host}";
+    }
+
+    private async Task HandleConnectionUpdate(System.Text.Json.JsonElement root)
+    {
+        if (!root.TryGetProperty("data", out var dataProp)) return;
+
+        string? instanceName = null;
+        string? state = null;
+
+        if (dataProp.TryGetProperty("instance", out var instanceProp))
+        {
+            if (instanceProp.TryGetProperty("instanceName", out var nameProp))
+                instanceName = nameProp.GetString();
+            if (instanceProp.TryGetProperty("state", out var stateProp))
+                state = stateProp.GetString();
+        }
+
+        if (string.IsNullOrEmpty(instanceName)) return;
+
+        _logger.LogInformation("Connection update for {InstanceName}: {State}", instanceName, state);
+
+        var instance = (await _unitOfWork.WhatsAppInstances.FindAsync(
+            w => w.InstanceName == instanceName && !w.IsDeleted)).FirstOrDefault();
+
+        if (instance == null) return;
+
+        instance.IsActive = state == "open";
+        _unitOfWork.WhatsAppInstances.Update(instance);
+        await _unitOfWork.SaveChangesAsync();
     }
 
     private async Task HandleIncomingMessage(System.Text.Json.JsonElement root)
@@ -268,7 +481,11 @@ public class WhatsAppController : ControllerBase
             return companyId;
         return null;
     }
+
+    #endregion
 }
+
+#region DTOs
 
 public class CreateWhatsAppInstanceRequest
 {
@@ -284,3 +501,22 @@ public class SendMessageRequest
     public string PhoneNumber { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
 }
+
+public class WhatsAppInstanceDetailDto
+{
+    public Guid Id { get; set; }
+    public Guid CompanyId { get; set; }
+    public Guid? BranchId { get; set; }
+    public string InstanceName { get; set; } = string.Empty;
+    public string ApiUrl { get; set; } = string.Empty;
+    public string ApiKey { get; set; } = string.Empty;
+    public string? PhoneNumber { get; set; }
+    public bool IsActive { get; set; }
+    public string? WebhookUrl { get; set; }
+    public string ConnectionState { get; set; } = "unknown";
+    public bool WebhookConfigured { get; set; }
+    public string[] WebhookEvents { get; set; } = [];
+    public DateTime CreatedAt { get; set; }
+}
+
+#endregion

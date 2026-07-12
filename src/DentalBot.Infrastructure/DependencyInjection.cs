@@ -20,6 +20,7 @@ public static class DependencyInjection
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IEvolutionService, EvolutionService>();
         services.AddScoped<IWhatsAppService, WhatsAppService>();
         services.AddScoped<IAIService, AIService>();
         services.AddScoped<INotificationService, NotificationService>();
