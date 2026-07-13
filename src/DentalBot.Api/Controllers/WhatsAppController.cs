@@ -162,6 +162,10 @@ public class WhatsAppController : ControllerBase
                 "No se pudo crear la instancia en Evolution API. Verifica la URL y API Key."));
         }
 
+        var settingsConfigured = await _whatsAppService.ConfigureInstanceSettingsAsync(instance.Id);
+        if (!settingsConfigured)
+            _logger.LogWarning("Settings configuration failed for {InstanceName}, continuing with webhook setup", request.InstanceName);
+
         var webhookUrl = GetWebhookBaseUrl();
         await _whatsAppService.ConfigureWebhookAsync(instance.Id, webhookUrl);
 

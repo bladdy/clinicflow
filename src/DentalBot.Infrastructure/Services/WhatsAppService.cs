@@ -159,4 +159,31 @@ public class WhatsAppService : IWhatsAppService
         await ConfigureWebhookAsync(instanceId, webhookUrl);
         return await VerifyWebhookAsync(instanceId);
     }
+
+    public async Task<bool> ConfigureInstanceSettingsAsync(Guid instanceId)
+    {
+        var instance = await GetInstanceAsync(instanceId);
+        if (instance == null)
+        {
+            _logger.LogWarning("WhatsApp instance {InstanceId} not found for settings config", instanceId);
+            return false;
+        }
+
+        var settings = new EvolutionSettingsRequest
+        {
+            RejectCall = false,
+            MsgCall = "",
+            GroupsIgnore = false,
+            AlwaysOnline = false,
+            ReadMessages = true,
+            ReadStatus = false,
+            SyncFullHistory = false
+        };
+
+        var configured = await _evolutionService.ConfigureSettingsAsync(
+            instance.ApiUrl, instance.ApiKey, instance.InstanceName, settings);
+
+        _logger.LogInformation("ConfigureSettings result for {InstanceName}: {Configured}", instance.InstanceName, configured);
+        return configured;
+    }
 }

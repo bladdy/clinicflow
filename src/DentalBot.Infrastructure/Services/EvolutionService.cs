@@ -364,7 +364,6 @@ public class EvolutionService : IEvolutionService
             return false;
         }
     }
-
     public async Task<bool> LogoutAsync(string apiUrl, string apiKey, string instanceName)
     {
         try
@@ -379,12 +378,50 @@ public class EvolutionService : IEvolutionService
             }
 
             var body = await response.Content.ReadAsStringAsync();
-            _logger.LogWarning("Failed to logout {InstanceName}: {Status} - {Body}", instanceName, response.StatusCode, body);
+            _logger.LogWarning("Failed to logout {InstanceName}: {Status} - {Body}",
+                instanceName, response.StatusCode, body);
             return false;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error logging out {InstanceName}", instanceName);
+            return false;
+        }
+    }
+
+    public async Task<bool> ConfigureSettingsAsync(string apiUrl, string apiKey, string instanceName, EvolutionSettingsRequest settings)
+    {
+        try
+        {
+            var client = CreateClient(apiKey);
+            var payload = new
+            {
+                rejectCall = settings.RejectCall,
+                msgCall = settings.MsgCall,
+                groupsIgnore = settings.GroupsIgnore,
+                alwaysOnline = settings.AlwaysOnline,
+                readMessages = settings.ReadMessages,
+                readStatus = settings.ReadStatus,
+                syncFullHistory = settings.SyncFullHistory
+            };
+
+            var response = await client.PostAsJsonAsync($"{apiUrl}/settings/set/{instanceName}", payload);
+
+            if (response.IsSuccessStatusCode)
+            {
+                _logger.LogInformation("Settings configured for {InstanceName}: ReadMessages={ReadMessages}",
+                    instanceName, settings.ReadMessages);
+                return true;
+            }
+
+            var body = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Failed to configure settings for {InstanceName}: {Status} - {Body}",
+                instanceName, response.StatusCode, body);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error configuring settings for {InstanceName}", instanceName);
             return false;
         }
     }

@@ -15,6 +15,18 @@ public interface IEvolutionService
     Task<bool> SendDocumentAsync(string apiUrl, string apiKey, string instanceName, string number, string documentUrl, string? caption);
     Task<bool> RestartInstanceAsync(string apiUrl, string apiKey, string instanceName);
     Task<bool> LogoutAsync(string apiUrl, string apiKey, string instanceName);
+    Task<bool> ConfigureSettingsAsync(string apiUrl, string apiKey, string instanceName, EvolutionSettingsRequest settings);
+}
+
+public class EvolutionSettingsRequest
+{
+    public bool RejectCall { get; set; }
+    public string MsgCall { get; set; } = string.Empty;
+    public bool GroupsIgnore { get; set; }
+    public bool AlwaysOnline { get; set; }
+    public bool ReadMessages { get; set; }
+    public bool ReadStatus { get; set; }
+    public bool SyncFullHistory { get; set; }
 }
 
 public class EvolutionInstanceInfo

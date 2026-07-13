@@ -18,4 +18,5 @@ public interface IWhatsAppService
     Task<EvolutionInstanceInfo?> GetInstanceInfoAsync(Guid instanceId);
     Task<EvolutionWebhookInfo?> GetWebhookInfoAsync(Guid instanceId);
     Task<bool> FixWebhookAsync(Guid instanceId, string webhookUrl);
+    Task<bool> ConfigureInstanceSettingsAsync(Guid instanceId);
 }
