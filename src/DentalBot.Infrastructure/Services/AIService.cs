@@ -139,8 +139,9 @@ public class AIService : IAIService
 
             return false;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogError(ex, "Error checking urgency for message");
             return false;
         }
     }

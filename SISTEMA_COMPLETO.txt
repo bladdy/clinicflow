@@ -1,0 +1,371 @@
+================================================================================
+                    DENTALBOT AI - FUNCIONALIDADES DEL SISTEMA
+================================================================================
+
+Plataforma SaaS multi-tenant para clinicas dentales.
+Stack: ASP.NET Core 9 + SQLite + React + TypeScript + Tailwind CSS
+IA: Ollama + Qwen3:4B (modelo local)
+WhatsApp: Evolution API v2 (Baileys)
+Arquitectura: Clean Architecture (Domain -> Application -> Infrastructure -> Api)
+
+================================================================================
+1. AUTENTICACION Y GESTION DE USUARIOS
+================================================================================
+
+- Login con email y contrasena (JWT + refresh tokens)
+- Registro de cuentas con validacion de contrasena (8+ chars, mayuscula, minuscula, numero)
+- 4 roles: Administrador, Recepcion, Doctor, SoloLectura
+- Refresh tokens con expiracion de 7 dias
+- Cuenta desactivable (IsActive)
+- Endpoints: POST /api/auth/login, /register, /refresh, /revoke
+
+================================================================================
+2. DASHBOARD PRINCIPAL
+================================================================================
+
+- Tarjetas de estadisticas: Citas de hoy, Total pacientes, Conversaciones activas, Citas pendientes
+- Layout responsive 4 columnas con iconos
+- Endpoint: GET /api/dashboard/stats
+
+================================================================================
+3. GESTION DE EMPRESAS (Clinicas)
+================================================================================
+
+- CRUD completo de empresas (clinicas)
+- Campos: Nombre, Telefono, Email, Direccion, Logo, Sitio Web, RFC
+- Endpoints: GET/POST/PUT/DELETE /api/companies
+
+================================================================================
+4. GESTION DE SUCURSALES
+================================================================================
+
+- CRUD completo de sucursales
+- Soporte para sucursal principal (IsMain)
+- Filtrado por empresa
+- Endpoints: GET/POST/PUT/DELETE /api/branches
+
+================================================================================
+5. GESTION DE DOCTORES
+================================================================================
+
+- CRUD completo de doctores
+- Al crear doctor se crea automaticamente un User con rol Doctor
+- Campos: Especialidad, Cedula Profesional, Bio, Foto URL, Color del calendario
+- Tabla paginada con preview de color
+- Endpoints: GET/POST/PUT/DELETE /api/doctors
+
+================================================================================
+6. GESTION DE PACIENTES
+================================================================================
+
+- CRUD completo de pacientes
+- Campos: Nombre, Apellido, Telefono, Email, Fecha de Nacimiento, Genero, Direccion, Notas, Historial Medico
+- Formateo de telefono y genero en display
+- Endpoints: GET/POST/PUT/DELETE /api/patients
+
+================================================================================
+7. GESTION DE SERVICIOS DENTALES
+================================================================================
+
+- CRUD completo de servicios dentales
+- Campos: Nombre, Descripcion, Duracion (min), Precio (MXN), Categoria, Activo
+- Visualizacion de precio en formato moneda
+- Endpoints: GET/POST/PUT/DELETE /api/services
+
+================================================================================
+8. GESTION DE CITAS - CALENDARIO INTERACTIVO
+================================================================================
+
+- CRUD completo de citas
+- Vista Calendario (FullCalendar v6):
+  * 4 vistas: Lista, Dia, Semana, Mes
+  * Navegacion por fecha: anterior/siguiente/Hoy/selector
+  * Drag & drop para mover citas
+  * Resize para cambiar duracion
+  * Tooltip al hover con detalles
+  * Colores por doctor
+  * Slots: 08:00-20:00, intervalos de 15 min
+- Vista Lista: Tabla paginada con busqueda, filtros y edicion rapida de estado
+- Deteccion automatica de conflictos de horario
+- Slots disponibles por doctor (basado en horarios de atencion)
+- Estados: Programada, Confirmada, En Progreso, Completada, Cancelada, No Show
+- Endpoints: GET/POST/PUT/DELETE /api/appointments, GET /available-slots, GET /range
+
+================================================================================
+9. HORARIOS DE ATENCION
+================================================================================
+
+- Horarios por sucursal y doctor (opcional)
+- Dias de la semana (Lunes a Domingo)
+- Horarios de apertura/cierre
+- Flag de cerrado por dia
+- Usado internamente para calcular slots disponibles
+
+================================================================================
+10. FERIADOS
+================================================================================
+
+- Registro de dias festivos por empresa/sucursal
+- Soporte para feriados recurrentes (cada ano)
+- Endpoints: Entidad preparada, usada en logica de disponibilidad
+
+================================================================================
+11. INTEGRACION WHATSAPP (EVOLUTION API v2)
+================================================================================
+
+- CRUD de instancias de WhatsApp
+- Crear instancia en Evolution API (POST /instance/create)
+- Eliminar instancia de Evolution API (DELETE /instance/delete/{name})
+- Obtener codigo QR para vincular (GET /instance/connect/{name})
+- Verificar estado de conexion (GET /instance/connectionState/{name})
+- Reiniciar instancia (PUT /instance/restart/{name})
+- Desconectar instancia (PUT /instance/logout/{name})
+- Obtener info detallada de instancia (GET /instance/findInstance/{name})
+- Listar instancias (GET /instance/fetchInstances)
+- Configurar webhook (POST /webhook/set/{name})
+  * Eventos: MESSAGES_UPSERT, CONNECTION_UPDATE, QRCODE_UPDATED
+  * URL del webhook: http://host.docker.internal:5253/api/whatsapp/webhook
+- Verificar webhook configurado (GET /webhook/find/{name})
+- Reparar webhook automaticamente (POST /webhook/fix)
+- Enviar mensaje de texto (POST /message/sendText/{name})
+- Enviar imagen (POST /message/sendMedia/{name})
+- Enviar documento (POST /message/sendMedia/{name})
+- Enviar mensaje manual desde el panel
+- Frontend: Panel con indicadores de conexion y webhook, modal QR, botones de accion
+- Endpoints: GET/POST/DELETE /api/whatsapp/instances, /status, /qrcode, /restart, /logout, /info, /webhook, /webhook/fix, /send
+
+================================================================================
+12. ASISTENTE DE IA (OLLAMA + QWEN3)
+================================================================================
+
+- Generar respuestas automaticas a mensajes de pacientes
+  * Contexto: ultimos 20 mensajes de la conversacion
+  * Herramientas declaradas: BuscarHorarios, CrearCita, ReagendarCita, CancelarCita,
+    BuscarPaciente, ConsultarServicios, ConsultarFAQ, TransferirHumano
+- Detectar intencion del mensaje:
+  * AGENDAR_CITA, REAGENDAR_CITA, CANCELAR_CITA, CONSULTAR_HORARIOS,
+    CONSULTAR_PRECIOS, CONSULTAR_SERVICIOS, PREGUNTA_FAQ, URGENCIA, SALUDO, OTRO
+- Detectar urgencias dentales:
+  * Dolor intenso, sangrado abundante, trauma, hinchazon severa, fiebre
+  * Si es urgencia: envia mensaje de emergencia y avisa que un doctor se comunicara
+- Configuracion por empresa:
+  * URL de Ollama, Modelo, Max tokens, Temperatura
+  * Prompt del sistema (personalizable)
+  * Mensaje de bienvenida y de transferencia
+  * Toggle para activar/desactivar IA
+- Endpoints: GET/PUT /api/ai-settings
+
+================================================================================
+13. BASE DE CONOCIMIENTO
+================================================================================
+
+- CRUD de articulos de conocimiento para el bot
+- Campos: Titulo, Contenido, Categoria, Palabras Clave, Activo
+- Filtrado por categoria
+- Usado por el bot IA para responder preguntas frecuentes
+- Endpoints: GET/POST/PUT/DELETE /api/knowledgearticles
+
+================================================================================
+14. GESTION DE CONVERSACIONES (CHATBOT)
+================================================================================
+
+- Lista de conversaciones con filtros por estado
+- Estados: Abierta, Cerrada, Archivada
+- Vista detallada de conversacion con chat estilo burbuja:
+  * Paciente: fondo gris, izquierda
+  * Bot (IA): fondo azul, derecha
+  * Humano: fondo verde, derecha
+- Cada mensaje muestra: tipo de remitente (badge) y hora
+- Cerrar conversacion desde el panel
+- Tipos de remitente: Paciente, Bot, Humano
+- Endpoints: GET/PUT /api/conversations, PUT /close
+
+================================================================================
+15. FLUJO COMPLETO DEL BOT (END-TO-END)
+================================================================================
+
+1. Paciente envia mensaje por WhatsApp
+2. Evolution API recibe el mensaje y envia webhook
+3. Sistema crea/busca conversacion abierta para ese telefono
+4. Asocia paciente automaticamente si el telefono coincide
+5. Guarda mensaje entrante en la BD
+6. Verifica si la IA esta habilitada para esa empresa
+7. Si NO esta habilitada -> envia mensaje de transferencia a humano
+8. Si SI esta habilitada:
+   a. Recupera los ultimos 20 mensajes de contexto
+   b. Analiza si es urgencia dental
+   c. Si ES urgencia -> envia mensaje de emergencia
+   d. Si NO es urgencia -> envia a Ollama con herramientas disponibles
+   e. Ollama genera respuesta considerando horarios, citas, servicios, FAQ
+   f. Guarda respuesta del bot y la envia al paciente
+
+================================================================================
+16. REPORTES Y ANALITICAS (5 TIPOS)
+================================================================================
+
+a) Resumen General:
+   - Total de citas, Completadas, Canceladas, No Show
+   - Total de pacientes, Ingresos totales
+   - Periodo configurable (default: ultimos 30 dias)
+   - Tasa de asistencia
+
+b) Citas por Servicio:
+   - Nombre del servicio, Total de citas, Completadas, Ingresos
+   - Ordenado por numero de citas
+
+c) Citas por Doctor:
+   - Nombre, Especialidad, Total de citas, Completadas, No Show
+   - Ordenado por numero de citas
+
+d) Tendencia Mensual:
+   - Mes, Total de citas, Completadas, Ingresos
+   - Visualizacion con barras proporcionales
+
+e) Retencion de Pacientes:
+   - Total de pacientes, Con citas, Recurrentes (>1 cita), Primera vez
+   - Tasa de retencion (%)
+   - Alertas: < 50% recomendaciones, >= 70% felicitacion
+
+- Selector de rango de fechas (Desde/Hasta)
+- 5 tabs en el frontend
+- Endpoints: GET /api/reports/overview, /appointments-by-service,
+  /appointments-by-doctor, /monthly-trend, /patient-retention
+
+================================================================================
+17. SUSCRIPCIONES Y PLANES (SaaS)
+================================================================================
+
+- 4 planes de suscripcion:
+  * Trial: Gratis 14 dias, 1 sucursal, 2 doctores, 50 pacientes, 30 citas/mes
+  * Basico: $499/mes, 1 sucursal, 3 doctores, 200 pacientes, 100 citas/mes
+  * Profesional: $999/mes, 3 sucursales, 10 doctores, 1000 pacientes, 500 citas/mes
+  * Empresarial: $2499/mes, 20 sucursales, 50 doctores, 10000 pacientes, 5000 citas/mes
+
+- Limites por plan:
+  * MaxSucursales, MaxDoctores, MaxPacientes, MaxCitas/Mes, MaxConversaciones/Mes
+  * Flags: HasAI, HasWhatsAppIntegration, HasAdvancedReports, HasPrioritySupport
+
+- Estados de suscripcion: Activa, Vencida, Cancelada, Expirada
+- Cambio de plan con recalculo de limites
+- Verificacion de limites antes de crear recursos
+- Frontend: Cards de plan con barras de uso y alertas de recursos bajos
+- Endpoints: GET/POST/PUT/DELETE /api/plans, GET/POST /api/subscriptions,
+  POST /change-plan, /cancel, GET /check-limits
+
+================================================================================
+18. PANEL DE SUPER-ADMINISTRADOR
+================================================================================
+
+- Estadisticas globales del sistema:
+  * Total empresas, Suscripciones activas, Total doctores, Total pacientes, Total citas
+- Lista de todas las empresas con busqueda:
+  * Empresa, Plan, Estado, Doctores, Pacientes, Citas, Fecha de registro
+- Activar/desactivar empresas
+- Solo accesible con rol Administrador
+- Endpoints: GET /api/super-admin/companies, /stats, POST /toggle-active
+
+================================================================================
+19. NOTIFICACIONES Y RECORDATORIOS AUTOMATICOS
+================================================================================
+
+- Recordatorio de cita (24 horas antes):
+  * Busca citas programadas para manana con estado Scheduled
+  * Envia WhatsApp al paciente con details de la cita
+  * Ejecucion cada hora via BackgroundService
+
+- Encuesta post-cita:
+  * Busca citas completadas ayer
+  * Envia WhatsApp: "Califique del 1 al 5 su experiencia"
+  * Ejecucion cada hora via BackgroundService
+
+- Confirmacion de cita:
+  * Envia WhatsApp al paciente con details de la cita confirmada
+  * Incluye doctor, servicio y ubicacion
+
+- Delay de 1 segundo entre mensajes para evitar rate limiting
+
+================================================================================
+20. CONFIGURACION GENERAL
+================================================================================
+
+- Perfil del usuario: Nombre, Email, Rol, Telefono (solo lectura)
+- Informacion de la empresa (editable): Nombre, Telefono, Email, Direccion, Sitio Web
+
+================================================================================
+21. ENTIDADES DE DOMINIO (19 entidades)
+================================================================================
+
+1.  BaseEntity        - Id, CreatedAt, UpdatedAt, CreatedBy, UpdatedBy, IsDeleted, DeletedAt, DeletedBy
+2.  Company           - Name, Phone, Email, Address, LogoUrl, Website, TaxId
+3.  Branch            - CompanyId, Name, Phone, Email, Address, IsMain
+4.  User              - Email, PasswordHash, FirstName, LastName, Phone, RoleId, BranchId, CompanyId, IsActive, RefreshToken
+5.  Role              - Name (enum), Description
+6.  Doctor            - UserId, CompanyId, Specialty, LicenseNumber, Bio, PhotoUrl, Color
+7.  Patient           - CompanyId, BranchId, FirstName, LastName, Email, Phone, DateOfBirth, Gender, Address, Notes, MedicalHistory
+8.  Service           - CompanyId, Name, Description, DurationMinutes, Price, Category, IsActive
+9.  Appointment       - CompanyId, BranchId, DoctorId, PatientId, ServiceId, AppointmentDate, StartTime, EndTime, Status, Notes, Reason
+10. Conversation      - CompanyId, PatientId, Phone, BranchId, WhatsAppInstanceId, Status, StartedAt, EndedAt
+11. Message           - ConversationId, Content, Direction, SenderType, SentAt, IsRead
+12. KnowledgeArticle  - CompanyId, Title, Content, Category, Keywords, IsActive
+13. BusinessHour      - BranchId, DoctorId, DayOfWeek, OpenTime, CloseTime, IsClosed
+14. Holiday           - CompanyId, BranchId, Name, Date, IsRecurring
+15. AISettings        - CompanyId, OllamaUrl, ModelName, SystemPrompt, MaxTokens, Temperature, IsEnabled, WelcomeMessage, TransferMessage
+16. WhatsAppInstance  - CompanyId, BranchId, InstanceName, ApiUrl, ApiKey, PhoneNumber, IsActive, WebhookUrl
+17. Plan              - Name, Description, MonthlyPrice, AnnualPrice, Max*, Has* flags, IsActive, SortOrder
+18. CompanySubscription - CompanyId, PlanId, Status, StartDate, EndDate, IsAnnual, Current* counts
+19. Invoice           - CompanyId, SubscriptionId, InvoiceNumber, Amount, Tax, Total, Currency, InvoiceDate, PaidDate, IsPaid
+
+================================================================================
+22. ENUMS (9 enums)
+================================================================================
+
+1. AppointmentStatus  - Scheduled(1), Confirmed(2), InProgress(3), Completed(4), Cancelled(5), NoShow(6)
+2. ConversationStatus - Open(1), Closed(2), Archived(3)
+3. DayOfWeek          - Lunes(1), Martes(2), Miercoles(3), Jueves(4), Viernes(5), Sabado(6), Domingo(7)
+4. Gender             - Male(1), Female(2), Other(3)
+5. MessageDirection   - Incoming(1), Outgoing(2)
+6. RoleName           - Administrador(1), Recepcion(2), Doctor(3), SoloLectura(4)
+7. SenderType         - Patient(1), Bot(2), Human(3)
+8. SubscriptionPlan   - Trial(0), Basic(1), Professional(2), Enterprise(3)
+9. SubscriptionStatus - Active(0), PastDue(1), Cancelled(2), Expired(3)
+
+================================================================================
+23. SERVICIOS DE INFRAESTRUCTURA
+================================================================================
+
+1. AIService                                      - Generar respuestas, detectar intencion, detectar urgencia via Ollama
+2. AuthService                                     - Login, Register, RefreshToken, RevokeToken
+3. JwtTokenService                                 - Generar/validar tokens JWT, refresh tokens
+4. EvolutionService                                - Comunicacion HTTP completa con Evolution API v2
+5. WhatsAppService                                 - Capa de abstraccion sobre EvolutionService
+6. NotificationService                             - Enviar recordatorios, confirmaciones y encuestas via WhatsApp
+7. AppointmentReminderBackgroundService            - BackgroundService: ejecuta cada hora recordatorios y encuestas
+
+================================================================================
+24. MIDDLEWARE Y FUNCIONALIDADES TRANSVERSALES
+================================================================================
+
+- ExceptionMiddleware: Mapea excepciones a HTTP (401, 400, 404, 500) con formato ApiResponse
+- CORS: AllowAll (cualquier origen, metodo y header)
+- Swagger: Habilitado en Development con soporte JWT Bearer
+- Soft Delete: Todas las entidades soportan eliminacion logica
+- SeedData: Crea 4 roles, 1 empresa, 1 sucursal, 1 admin (admin@dentalbot.com / Admin123!), 4 planes
+
+================================================================================
+25. CREDENCIALES POR DEFECTO
+================================================================================
+
+- Admin: admin@dentalbot.com / Admin123!
+- Evolution API: http://localhost:8080, api_key
+- Ollama: http://localhost:11434, modelo qwen3:4b
+
+================================================================================
+                          RESUMEN FINAL
+================================================================================
+
+El sistema DentalBot AI es una plataforma SaaS multi-tenant completa para
+clinicas dentales con 24 modulos funcionales, 19 entidades, 9 enums,
+7 servicios de infraestructura, ~50 endpoints REST, 15 paginas frontend,
+integracion con WhatsApp (Evolution API) e IA local (Ollama + Qwen3).
+
+================================================================================

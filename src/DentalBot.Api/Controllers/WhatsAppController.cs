@@ -15,6 +15,7 @@ public class WhatsAppController : ControllerBase
     private readonly IUnitOfWork _unitOfWork;
     private readonly IWhatsAppService _whatsAppService;
     private readonly IAIService _aiService;
+    private readonly IChatbotService _chatbotService;
     private readonly IConfiguration _configuration;
     private readonly ILogger<WhatsAppController> _logger;
 
@@ -22,12 +23,14 @@ public class WhatsAppController : ControllerBase
         IUnitOfWork unitOfWork,
         IWhatsAppService whatsAppService,
         IAIService aiService,
+        IChatbotService chatbotService,
         IConfiguration configuration,
         ILogger<WhatsAppController> logger)
     {
         _unitOfWork = unitOfWork;
         _whatsAppService = whatsAppService;
         _aiService = aiService;
+        _chatbotService = chatbotService;
         _configuration = configuration;
         _logger = logger;
     }
@@ -38,26 +41,34 @@ public class WhatsAppController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Webhook([FromBody] object payload)
     {
+        Console.WriteLine($"Webhook received: {System.Text.Json.JsonSerializer.Serialize(payload)}");
         try
         {
+            _logger.LogInformation("=== WEBHOOK RECEIVED === Payload: {payload}",
+                System.Text.Json.JsonSerializer.Serialize(payload));
+
             var json = System.Text.Json.JsonSerializer.Serialize(payload);
             var doc = System.Text.Json.JsonDocument.Parse(json);
 
             if (!doc.RootElement.TryGetProperty("event", out var eventProp))
+            {
+                _logger.LogWarning("Webhook received without 'event' property. Keys: {Keys}",
+                    string.Join(", ", doc.RootElement.EnumerateObject().Select(p => p.Name)));
                 return Ok();
+            }
 
             var eventType = eventProp.GetString();
             _logger.LogInformation("Webhook event received: {EventType}", eventType);
 
-            switch (eventType)
+            switch (eventType.ToUpperInvariant())
             {
-                case "MESSAGES_UPSERT":
+                case "MESSAGES.UPSERT":
                     await HandleIncomingMessage(doc.RootElement);
                     break;
-                case "CONNECTION_UPDATE":
+                case "CONNECTION.UPDATE":
                     await HandleConnectionUpdate(doc.RootElement);
                     break;
-                case "QRCODE_UPDATED":
+                case "QRCODE.UPDATED":
                     _logger.LogInformation("QR code updated event received");
                     break;
             }
@@ -66,7 +77,7 @@ public class WhatsAppController : ControllerBase
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing webhook");
+            _logger.LogError(ex, "Error processing webhook: {ErrorMessage}", ex.Message);
             return Ok();
         }
     }
@@ -303,27 +314,37 @@ public class WhatsAppController : ControllerBase
 
     private async Task HandleConnectionUpdate(System.Text.Json.JsonElement root)
     {
-        if (!root.TryGetProperty("data", out var dataProp)) return;
-
         string? instanceName = null;
         string? state = null;
 
-        if (dataProp.TryGetProperty("instance", out var instanceProp))
+        if (root.TryGetProperty("instance", out var instNameProp))
+            instanceName = instNameProp.GetString();
+
+        if (root.TryGetProperty("data", out var dataProp))
         {
-            if (instanceProp.TryGetProperty("instanceName", out var nameProp))
-                instanceName = nameProp.GetString();
-            if (instanceProp.TryGetProperty("state", out var stateProp))
-                state = stateProp.GetString();
+            if (dataProp.TryGetProperty("instance", out var instanceProp))
+            {
+                if (instanceProp.TryGetProperty("state", out var stateProp))
+                    state = stateProp.GetString();
+            }
         }
 
-        if (string.IsNullOrEmpty(instanceName)) return;
+        if (string.IsNullOrEmpty(instanceName))
+        {
+            _logger.LogWarning("Connection update received with no instance name");
+            return;
+        }
 
         _logger.LogInformation("Connection update for {InstanceName}: {State}", instanceName, state);
 
         var instance = (await _unitOfWork.WhatsAppInstances.FindAsync(
             w => w.InstanceName == instanceName && !w.IsDeleted)).FirstOrDefault();
 
-        if (instance == null) return;
+        if (instance == null)
+        {
+            _logger.LogWarning("Connection update: instance '{InstanceName}' not found in DB", instanceName);
+            return;
+        }
 
         instance.IsActive = state == "open";
         _unitOfWork.WhatsAppInstances.Update(instance);
@@ -332,11 +353,14 @@ public class WhatsAppController : ControllerBase
 
     private async Task HandleIncomingMessage(System.Text.Json.JsonElement root)
     {
-        if (!root.TryGetProperty("data", out var dataProp)) return;
+        if (!root.TryGetProperty("data", out var dataProp))
+        {
+            _logger.LogWarning("Webhook MESSAGES_UPSERT has no 'data' property");
+            return;
+        }
 
         string? phone = null;
         string? content = null;
-        string? instanceId = null;
 
         if (dataProp.TryGetProperty("key", out var keyProp))
         {
@@ -351,20 +375,43 @@ public class WhatsAppController : ControllerBase
             else if (msgProp.TryGetProperty("extendedTextMessage", out var extProp) &&
                      extProp.TryGetProperty("text", out var textProp))
                 content = textProp.GetString();
+            else if (msgProp.TryGetProperty("imageMessage", out var imgProp) &&
+                     imgProp.TryGetProperty("caption", out var captionProp))
+                content = captionProp.GetString();
+            else if (msgProp.TryGetProperty("audioMessage", out _))
+                content = "[Mensaje de audio]";
+            else if (msgProp.TryGetProperty("videoMessage", out var vidProp) &&
+                     vidProp.TryGetProperty("caption", out var vidCaptionProp))
+                content = vidCaptionProp.GetString();
         }
 
-        if (dataProp.TryGetProperty("instanceId", out var instProp))
-            instanceId = instProp.GetString();
-
-        if (string.IsNullOrEmpty(phone) || string.IsNullOrEmpty(content)) return;
+        if (string.IsNullOrEmpty(phone) || string.IsNullOrEmpty(content))
+        {
+            _logger.LogWarning("Skipping message - Phone: {Phone}, Content: {Content}, MessageType: {MessageType}, MessageKeys: [{MessageKeys}]",
+                phone ?? "null", content ?? "null",
+                dataProp.TryGetProperty("messageType", out var mtProp) ? mtProp.GetString() ?? "none" : "none",
+                dataProp.TryGetProperty("message", out var msgCheck) ? string.Join(", ", msgCheck.EnumerateObject().Select(p => p.Name)) : "no message obj");
+            return;
+        }
 
         _logger.LogInformation("Incoming message from {Phone}: {Content}", phone, content.Substring(0, Math.Min(content.Length, 100)));
 
-        var instance = !string.IsNullOrEmpty(instanceId) && Guid.TryParse(instanceId, out var instGuid)
-            ? await _unitOfWork.WhatsAppInstances.GetByIdAsync(instGuid)
-            : (await _unitOfWork.WhatsAppInstances.FindAsync(w => w.PhoneNumber == phone && w.IsActive)).FirstOrDefault();
+        string? instanceName = null;
+        if (root.TryGetProperty("instance", out var instNameProp))
+            instanceName = instNameProp.GetString();
 
-        if (instance == null) return;
+        var instance = !string.IsNullOrEmpty(instanceName)
+            ? (await _unitOfWork.WhatsAppInstances.FindAsync(
+                w => w.InstanceName == instanceName && !w.IsDeleted)).FirstOrDefault()
+            : (await _unitOfWork.WhatsAppInstances.FindAsync(
+                w => w.PhoneNumber == phone && w.IsActive)).FirstOrDefault();
+
+        if (instance == null)
+        {
+            _logger.LogWarning("Instance not found for incoming message. Searched by InstanceName={InstanceName}, Phone={Phone}",
+                instanceName ?? "null", phone ?? "null");
+            return;
+        }
 
         var conversation = (await _unitOfWork.Conversations.FindAsync(
             c => c.Phone == phone && c.CompanyId == instance.CompanyId && c.Status == ConversationStatus.Open)).FirstOrDefault();
@@ -422,47 +469,16 @@ public class WhatsAppController : ControllerBase
             return;
         }
 
-        var recentMessages = (await _unitOfWork.Messages.FindAsync(
-            m => m.ConversationId == conversation.Id))
-            .OrderBy(m => m.SentAt)
-            .TakeLast(20)
-            .ToList();
+        var response = await _chatbotService.HandleMessageAsync(conversation, content, instance.CompanyId);
 
-        var context = string.Join("\n", recentMessages.Select(m =>
-            $"{(m.Direction == MessageDirection.Incoming ? "Paciente" : "Bot")}: {m.Content}"));
-
-        var tools = new List<string>
-        {
-            "BuscarHorarios", "CrearCita", "ReagendarCita", "CancelarCita",
-            "BuscarPaciente", "ConsultarServicios", "ConsultarFAQ", "TransferirHumano"
-        };
-
-        var isUrgent = await _aiService.IsUrgentAsync(content);
-        if (isUrgent)
-        {
-            var urgentMsg = new Message
-            {
-                Id = Guid.NewGuid(),
-                ConversationId = conversation.Id,
-                Content = "Detectamos que esto puede ser una urgencia. Un doctor se comunicará contigo de inmediato. Si es una emergencia grave, por favor acude al servicio de urgencias más cercano.",
-                Direction = MessageDirection.Outgoing,
-                SenderType = SenderType.Bot,
-                SentAt = DateTime.UtcNow,
-                IsRead = true
-            };
-            await _unitOfWork.Messages.AddAsync(urgentMsg);
-            await _unitOfWork.SaveChangesAsync();
-            await _whatsAppService.SendMessageAsync(instance.Id, phone, urgentMsg.Content);
-            return;
-        }
-
-        var aiResponse = await _aiService.GenerateResponseAsync(content, context, aiSettings.SystemPrompt ?? string.Empty, tools);
+        _unitOfWork.Conversations.Update(conversation);
+        await _unitOfWork.SaveChangesAsync();
 
         var botMessage = new Message
         {
             Id = Guid.NewGuid(),
             ConversationId = conversation.Id,
-            Content = aiResponse,
+            Content = response,
             Direction = MessageDirection.Outgoing,
             SenderType = SenderType.Bot,
             SentAt = DateTime.UtcNow,
@@ -471,7 +487,7 @@ public class WhatsAppController : ControllerBase
         await _unitOfWork.Messages.AddAsync(botMessage);
         await _unitOfWork.SaveChangesAsync();
 
-        await _whatsAppService.SendMessageAsync(instance.Id, phone, aiResponse);
+        await _whatsAppService.SendMessageAsync(instance.Id, phone, response);
     }
 
     private Guid? GetCompanyId()

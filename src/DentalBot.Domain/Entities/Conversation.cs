@@ -13,6 +13,7 @@ public class Conversation : BaseEntity
     public ConversationStatus Status { get; set; }
     public DateTime StartedAt { get; set; }
     public DateTime? EndedAt { get; set; }
+    public string? BookingState { get; set; }
 
     public Company Company { get; set; } = null!;
     public Patient? Patient { get; set; }

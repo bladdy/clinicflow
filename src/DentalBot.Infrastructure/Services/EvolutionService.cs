@@ -38,6 +38,14 @@ public class EvolutionService : IEvolutionService
                 return true;
             }
 
+            if (body.Contains("already exists", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("already in use", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("already been taken", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation("Evolution API instance {InstanceName} already exists, treating as success", instanceName);
+                return true;
+            }
+
             _logger.LogWarning("Failed to create Evolution instance {InstanceName}: {Status} - {Body}",
                 instanceName, response.StatusCode, body);
             return false;
@@ -237,16 +245,13 @@ public class EvolutionService : IEvolutionService
                 return null;
 
             var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
 
-            if (!doc.RootElement.TryGetProperty("webhook", out var webhookProp))
-                return null;
-
-            var webhookUrl = webhookProp.TryGetProperty("url", out var urlProp) ? urlProp.GetString() ?? "" : "";
-            var enabled = webhookProp.TryGetProperty("enabled", out var enabledProp) && enabledProp.GetBoolean();
-            var by = webhookProp.TryGetProperty("by", out var byProp) ? byProp.GetString() ?? "" : "";
+            var webhookUrl = root.TryGetProperty("url", out var urlProp) ? urlProp.GetString() ?? "" : "";
+            var enabled = root.TryGetProperty("enabled", out var enabledProp) && enabledProp.GetBoolean();
 
             string[] webhookEvents = [];
-            if (webhookProp.TryGetProperty("events", out var eventsProp) && eventsProp.ValueKind == JsonValueKind.Array)
+            if (root.TryGetProperty("events", out var eventsProp) && eventsProp.ValueKind == JsonValueKind.Array)
             {
                 webhookEvents = eventsProp.EnumerateArray()
                     .Select(e => e.GetString() ?? "")
@@ -259,7 +264,7 @@ public class EvolutionService : IEvolutionService
                 WebhookUrl = webhookUrl,
                 Enabled = enabled,
                 Events = webhookEvents,
-                By = by
+                By = ""
             };
         }
         catch (Exception ex)

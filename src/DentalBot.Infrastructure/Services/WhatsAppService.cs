@@ -34,6 +34,8 @@ public class WhatsAppService : IWhatsAppService
         var sent = await _evolutionService.SendTextAsync(instance.ApiUrl, instance.ApiKey, instance.InstanceName, phoneNumber, message);
         if (sent)
             _logger.LogInformation("Message sent to {Phone} via {InstanceName}", phoneNumber, instance.InstanceName);
+        else
+            _logger.LogWarning("Failed to send message to {Phone} via {InstanceName}", phoneNumber, instance.InstanceName);
     }
 
     public async Task SendTemplateMessageAsync(Guid instanceId, string phoneNumber, string templateName, Dictionary<string, string>? parameters = null)
@@ -78,6 +80,8 @@ public class WhatsAppService : IWhatsAppService
 
         var events = new[] { "MESSAGES_UPSERT", "CONNECTION_UPDATE", "QRCODE_UPDATED" };
         var configured = await _evolutionService.SetWebhookAsync(instance.ApiUrl, instance.ApiKey, instance.InstanceName, webhookUrl, events);
+
+        _logger.LogInformation("ConfigureWebhook result for {InstanceName}: {Configured}", instance.InstanceName, configured);
 
         if (configured)
         {

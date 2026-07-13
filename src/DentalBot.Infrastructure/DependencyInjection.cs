@@ -23,6 +23,7 @@ public static class DependencyInjection
         services.AddScoped<IEvolutionService, EvolutionService>();
         services.AddScoped<IWhatsAppService, WhatsAppService>();
         services.AddScoped<IAIService, AIService>();
+        services.AddScoped<IChatbotService, ChatbotService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddHostedService<AppointmentReminderBackgroundService>();
 
