@@ -31,7 +31,15 @@ public class WhatsAppService : IWhatsAppService
             return;
         }
 
+        var delayMs = Math.Clamp(message.Length / 50, 1, 5) * 1000;
+        await _evolutionService.SendPresenceAsync(instance.ApiUrl, instance.ApiKey, instance.InstanceName, phoneNumber, "composing", delayMs);
+
+        await Task.Delay(TimeSpan.FromMilliseconds(delayMs));
+
         var sent = await _evolutionService.SendTextAsync(instance.ApiUrl, instance.ApiKey, instance.InstanceName, phoneNumber, message);
+
+        await _evolutionService.SendPresenceAsync(instance.ApiUrl, instance.ApiKey, instance.InstanceName, phoneNumber, "paused", 0);
+
         if (sent)
             _logger.LogInformation("Message sent to {Phone} via {InstanceName}", phoneNumber, instance.InstanceName);
         else

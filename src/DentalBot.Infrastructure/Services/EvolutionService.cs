@@ -426,6 +426,29 @@ public class EvolutionService : IEvolutionService
         }
     }
 
+    public async Task<bool> SendPresenceAsync(string apiUrl, string apiKey, string instanceName, string number, string presence, int delay = 0)
+    {
+        try
+        {
+            var client = CreateClient(apiKey);
+            var payload = new { number, presence, delay };
+            var response = await client.PostAsJsonAsync($"{apiUrl}/chat/sendPresence/{instanceName}", payload);
+
+            if (response.IsSuccessStatusCode)
+                return true;
+
+            var body = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Failed to send presence '{Presence}' to {Number} via {InstanceName}: {Status} - {Body}",
+                presence, number, instanceName, response.StatusCode, body);
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error sending presence '{Presence}' to {Number} via {InstanceName}", presence, number, instanceName);
+            return false;
+        }
+    }
+
     private HttpClient CreateClient(string apiKey)
     {
         var client = _httpClientFactory.CreateClient();

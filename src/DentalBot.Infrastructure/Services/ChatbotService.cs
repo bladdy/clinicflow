@@ -232,6 +232,23 @@ public class ChatbotService : IChatbotService
         state.SelectedServiceId = selected.Id;
         state.SelectedServiceName = selected.Name;
         state.SelectedServiceDuration = selected.DurationMinutes;
+
+        if (state.EditingAppointmentId.HasValue && state.ModifyTarget == "service")
+        {
+            var appointment = await _unitOfWork.Appointments.GetByIdAsync(state.EditingAppointmentId.Value);
+            var timeStr = FormatTime12(appointment?.StartTime ?? new TimeSpan(9, 0, 0));
+            state.Phase = "confirming";
+            SaveState(conversation, state);
+            return $"📋 *Resumen de los cambios:*\n\n" +
+                   $"• Paciente: *{state.PatientFirstName} {state.PatientLastName}*\n" +
+                   $"• Teléfono: {state.PatientPhone}\n" +
+                   $"• Servicio: *{selected.Name}* ({selected.DurationMinutes} min - ${selected.Price})\n" +
+                   $"• Fecha: *{state.SelectedDate!.Value:dddd dd/MM/yyyy}*\n" +
+                   $"• Hora: *{timeStr}*\n" +
+                   $"• Doctor: *Dr(a). {state.SelectedDoctorName}*\n\n" +
+                   $"¿Confirmas los cambios? Responde *sí* para confirmar o *no* para cancelar.";
+        }
+
         state.Phase = "selecting_date";
         SaveState(conversation, state);
 
@@ -351,7 +368,7 @@ public class ChatbotService : IChatbotService
         var parsedTime = ParseTime(userMessage.Trim());
         var durationMinutes = state.SelectedServiceDuration ?? 30;
 
-        var (available, error) = await IsTimeSlotAvailable(companyId, state.SelectedDoctorId!.Value, state.SelectedDate!.Value, parsedTime, durationMinutes);
+        var (available, error) = await IsTimeSlotAvailable(companyId, state.SelectedDoctorId!.Value, state.SelectedDate!.Value, parsedTime, durationMinutes, state.EditingAppointmentId);
         if (!available)
         {
             return error!;
@@ -436,7 +453,7 @@ public class ChatbotService : IChatbotService
                 return $"✅ *¡Cita actualizada exitosamente!*\n\n" +
                        $"• Servicio: *{state.SelectedServiceName}*\n" +
                        $"• Fecha: *{state.SelectedDate:dddd dd/MM/yyyy}*\n" +
-                       $"• Hora: *{state.SelectedTime}*\n" +
+                       $"• Hora: *{FormatTime12(TimeSpan.Parse(state.SelectedTime))}*\n" +
                        $"• Doctor: *Dr(a). {state.SelectedDoctorName}*\n\n" +
                        $"Si necesitas más cambios, avísanos. 😊";
             }
@@ -468,7 +485,7 @@ public class ChatbotService : IChatbotService
                    $"• Paciente: *{state.PatientFirstName} {state.PatientLastName}*\n" +
                    $"• Servicio: *{state.SelectedServiceName}*\n" +
                    $"• Fecha: *{state.SelectedDate:dddd dd/MM/yyyy}*\n" +
-                   $"• Hora: *{state.SelectedTime}*\n" +
+                   $"• Hora: *{FormatTime12(TimeSpan.Parse(state.SelectedTime))}*\n" +
                    $"• Doctor: *Dr(a). {state.SelectedDoctorName}*\n\n" +
                    $"Te esperamos puntualmente. Si necesitas reprogramar, avísanos con anticipación. 😊";
         }
@@ -547,6 +564,30 @@ public class ChatbotService : IChatbotService
         var service = await _unitOfWork.Services.GetByIdAsync(existingAppointment.ServiceId);
         var doctor = await _unitOfWork.Doctors.GetByIdAsync(existingAppointment.DoctorId);
 
+        var hasTimeKeyword = lower.Contains("am") || lower.Contains("pm") ||
+            lower.Contains("tarde") || lower.Contains("mañana") || lower.Contains("manana") ||
+            lower.Contains("mediodía") || lower.Contains("medio dia") || lower.Contains("medianoche");
+        var hasTimePattern = System.Text.RegularExpressions.Regex.IsMatch(lower, @"\d+\s*(de\s+la(s)?)?\s*(tarde|mañana|manana|am|pm)");
+        var looksLikeTime = hasTimeKeyword || hasTimePattern;
+
+        if (looksLikeTime)
+        {
+            state.SelectedServiceId = existingAppointment.ServiceId;
+            state.SelectedServiceName = service?.Name;
+            state.SelectedServiceDuration = service?.DurationMinutes ?? 30;
+            state.SelectedDate = existingAppointment.AppointmentDate;
+            state.SelectedDoctorId = existingAppointment.DoctorId;
+            if (doctor != null)
+            {
+                var user = await _unitOfWork.Users.GetByIdAsync(doctor.UserId);
+                state.SelectedDoctorName = $"{user?.FirstName} {user?.LastName}";
+            }
+            state.ModifyTarget = "time";
+            state.Phase = "selecting_time";
+            SaveState(conversation, state);
+            return await HandleSelectingTime(conversation, state, userMessage, companyId);
+        }
+
         if (ContainsAny(lower, "1", "fecha", "date", "cambiar fecha", "cambiar la fecha"))
         {
             state.SelectedServiceId = existingAppointment.ServiceId;
@@ -607,10 +648,10 @@ public class ChatbotService : IChatbotService
             state.ModifyTarget = "time";
             SaveState(conversation, state);
 
-            var hoursRange = await GetBusinessHoursRange(existingAppointment.DoctorId, existingAppointment.AppointmentDate);
+            var hoursRange = await GetBusinessHoursRange(companyId, existingAppointment.AppointmentDate);
             if (string.IsNullOrEmpty(hoursRange))
             {
-                state.Phase = "modifying";
+                state.Phase = "modifying_appointment";
                 SaveState(conversation, state);
                 return "Lo siento, no hay horarios disponibles para esa fecha con ese doctor.\n\n¿Qué opción prefieres?\n1. *Cambiar la fecha*\n2. *Cambiar el doctor*\n5. *Cancelar esta cita*\n6. *Agendar una nueva cita*";
             }
@@ -748,9 +789,9 @@ public class ChatbotService : IChatbotService
         return string.Join("\n", lines);
     }
 
-    private async Task<string> GetBusinessHoursRange(Guid doctorId, DateTime date)
+    private async Task<string> GetBusinessHoursRange(Guid companyId, DateTime date)
     {
-        var branch = (await _unitOfWork.Branches.FindAsync(b => b.IsMain)).FirstOrDefault();
+        var branch = (await _unitOfWork.Branches.FindAsync(b => b.CompanyId == companyId && b.IsMain)).FirstOrDefault();
         if (branch == null) return "";
 
         var schedule = (await _unitOfWork.BusinessSchedules.FindAsync(
@@ -766,7 +807,7 @@ public class ChatbotService : IChatbotService
         return $"📅 Horario disponible: *{FormatTime12(day.OpenTime)}* a *{FormatTime12(day.CloseTime)}*\nPuedes elegir cualquier hora dentro de ese horario (ej: 2 de la tarde, 11 de la mañana, 3 PM, etc.)";
     }
 
-    private async Task<(bool available, string? error)> IsTimeSlotAvailable(Guid companyId, Guid doctorId, DateTime date, TimeSpan startTime, int durationMinutes)
+    private async Task<(bool available, string? error)> IsTimeSlotAvailable(Guid companyId, Guid doctorId, DateTime date, TimeSpan startTime, int durationMinutes, Guid? excludeAppointmentId = null)
     {
         var branch = (await _unitOfWork.Branches.FindAsync(
             b => b.CompanyId == companyId && b.IsMain)).FirstOrDefault();
@@ -821,7 +862,8 @@ public class ChatbotService : IChatbotService
 
         var existingAppointments = (await _unitOfWork.Appointments.FindAsync(
             a => a.DoctorId == doctorId && a.AppointmentDate.Date == date.Date &&
-                 a.Status != AppointmentStatus.Cancelled)).ToList();
+                 a.Status != AppointmentStatus.Cancelled &&
+                 (excludeAppointmentId == null || a.Id != excludeAppointmentId))).ToList();
 
         var overlaps = existingAppointments.Any(a =>
             a.StartTime < endTime && a.EndTime > startTime);

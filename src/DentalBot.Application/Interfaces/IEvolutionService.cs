@@ -16,6 +16,7 @@ public interface IEvolutionService
     Task<bool> RestartInstanceAsync(string apiUrl, string apiKey, string instanceName);
     Task<bool> LogoutAsync(string apiUrl, string apiKey, string instanceName);
     Task<bool> ConfigureSettingsAsync(string apiUrl, string apiKey, string instanceName, EvolutionSettingsRequest settings);
+    Task<bool> SendPresenceAsync(string apiUrl, string apiKey, string instanceName, string number, string presence, int delay = 0);
 }
 
 public class EvolutionSettingsRequest

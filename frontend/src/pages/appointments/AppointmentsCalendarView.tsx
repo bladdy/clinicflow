@@ -220,6 +220,16 @@ export function AppointmentsCalendarView({ viewType, currentDate, filters, onDat
         eventMouseLeave={handleEventMouseLeave}
         height="auto"
         locale="es"
+        slotLabelFormat={{
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        }}
+        timeFormat={{
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+        }}
         buttonText={{
           today: 'Hoy',
           month: 'Mes',
