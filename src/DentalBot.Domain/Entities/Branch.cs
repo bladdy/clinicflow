@@ -16,7 +16,7 @@ public class Branch : BaseEntity
     public ICollection<Patient> Patients { get; set; } = [];
     public ICollection<Appointment> Appointments { get; set; } = [];
     public ICollection<Conversation> Conversations { get; set; } = [];
-    public ICollection<BusinessHour> BusinessHours { get; set; } = [];
+    public BusinessSchedule? BusinessSchedule { get; set; }
     public ICollection<Holiday> Holidays { get; set; } = [];
     public ICollection<WhatsAppInstance> WhatsAppInstances { get; set; } = [];
 }

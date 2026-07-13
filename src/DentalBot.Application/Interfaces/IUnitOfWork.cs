@@ -15,7 +15,10 @@ public interface IUnitOfWork : IDisposable
     IGenericRepository<Conversation> Conversations { get; }
     IGenericRepository<Message> Messages { get; }
     IGenericRepository<KnowledgeArticle> KnowledgeArticles { get; }
-    IGenericRepository<BusinessHour> BusinessHours { get; }
+    IGenericRepository<BusinessSchedule> BusinessSchedules { get; }
+    IGenericRepository<ScheduleDay> ScheduleDays { get; }
+    IGenericRepository<BreakPeriod> BreakPeriods { get; }
+    IGenericRepository<LunchConfig> LunchConfigs { get; }
     IGenericRepository<Holiday> Holidays { get; }
     IGenericRepository<AISettings> AISettings { get; }
     IGenericRepository<WhatsAppInstance> WhatsAppInstances { get; }

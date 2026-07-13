@@ -1,6 +1,6 @@
 import { Outlet } from 'react-router-dom';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Stethoscope, Calendar, MessageSquare, Settings, LogOut, Menu, X, MessageCircle, BookOpen, Bot, BarChart3, Crown, Shield, UserCog } from 'lucide-react';
+import { LayoutDashboard, Users, Stethoscope, Calendar, MessageSquare, Settings, LogOut, Menu, X, MessageCircle, BookOpen, Bot, BarChart3, Crown, Shield, UserCog, Clock } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../store/authStore';
 
@@ -16,6 +16,7 @@ const navItems = [
   { path: '/settings/whatsapp', label: 'WhatsApp', icon: MessageCircle },
   { path: '/settings/ai', label: 'Configuración IA', icon: Bot },
   { path: '/settings/knowledge', label: 'Base de Conocimiento', icon: BookOpen },
+  { path: '/settings/business-hours', label: 'Horarios', icon: Clock },
   { path: '/subscription', label: 'Suscripción', icon: Crown },
   { path: '/admin', label: 'Admin', icon: Shield, adminOnly: true },
 ];

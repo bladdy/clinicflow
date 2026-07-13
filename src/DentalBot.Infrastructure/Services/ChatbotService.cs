@@ -252,10 +252,23 @@ public class ChatbotService : IChatbotService
             return "La fecha no puede ser en el pasado. Por favor, elige una fecha futura.";
         }
 
-        var dayOfWeek = date.Value.DayOfWeek;
-        if (dayOfWeek == System.DayOfWeek.Saturday || dayOfWeek == System.DayOfWeek.Sunday)
+        var branch = (await _unitOfWork.Branches.FindAsync(
+            b => b.CompanyId == companyId && b.IsMain)).FirstOrDefault();
+        if (branch == null)
+            return "No pudimos encontrar la sucursal. Por favor, contacta a la clínica.";
+
+        var schedule = (await _unitOfWork.BusinessSchedules.FindAsync(
+            s => s.BranchId == branch.Id && !s.IsDeleted)).FirstOrDefault();
+        if (schedule == null)
+            return "No hay horarios configurados. Por favor, contacta a la clínica.";
+
+        var dayOfWeekEsp = MapDayOfWeek(date.Value.DayOfWeek);
+        var scheduleDay = (await _unitOfWork.ScheduleDays.FindAsync(
+            d => d.BusinessScheduleId == schedule.Id && d.DayOfWeek == dayOfWeekEsp && !d.IsDeleted)).FirstOrDefault();
+
+        if (scheduleDay == null || !scheduleDay.IsOpen)
         {
-            return "Lo siento, no atendemos los fines de semana. Por favor, elige un día entre *lunes y viernes*.";
+            return "Lo siento, no atendemos ese día. Por favor, elige otro día.";
         }
 
         var holiday = (await _unitOfWork.Holidays.FindAsync(
@@ -700,105 +713,80 @@ public class ChatbotService : IChatbotService
         if (branch == null)
             return "No pudimos encontrar los horarios. Por favor, contacta a la clínica.";
 
-        var hours = (await _unitOfWork.BusinessHours.FindAsync(
-            h => h.BranchId == branch.Id && h.DoctorId == null)).ToList();
+        var schedule = (await _unitOfWork.BusinessSchedules.FindAsync(
+            s => s.BranchId == branch.Id && !s.IsDeleted)).FirstOrDefault();
 
-        if (hours.Count == 0)
+        if (schedule == null)
             return "Nuestro horario de atención es de *lunes a viernes de 9:00 AM a 5:00 PM*.\n\n¿Te gustaría agendar una cita?";
 
-        var lines = hours.Where(h => !h.IsClosed).OrderBy(h => h.DayOfWeek)
-            .Select(h => $"• {h.DayOfWeek}: {h.OpenTime:hh\\:mm} - {h.CloseTime:hh\\:mm}").ToList();
+        var days = (await _unitOfWork.ScheduleDays.FindAsync(
+            d => d.BusinessScheduleId == schedule.Id && !d.IsDeleted)).ToList();
+
+        if (days.Count == 0 || days.All(d => !d.IsOpen))
+            return "Nuestro horario de atención es de *lunes a viernes de 9:00 AM a 5:00 PM*.\n\n¿Te gustaría agendar una cita?";
+
+        var lines = days.Where(d => d.IsOpen).OrderBy(d => d.DayOfWeek)
+            .Select(d => $"• {d.DayOfWeek}: {FormatTime12(d.OpenTime)} - {FormatTime12(d.CloseTime)}").ToList();
 
         return $"Horarios de atención: 🕐\n\n{string.Join("\n", lines)}\n\n¿Te gustaría agendar una cita?";
     }
 
     private async Task<string> GetAvailableDoctors(Guid companyId, DateTime date)
     {
-        var dayOfWeekEsp = date.DayOfWeek switch
+        var allDoctors = (await _unitOfWork.Doctors.FindAsync(d => d.CompanyId == companyId)).ToList();
+        if (allDoctors.Count == 0) return "";
+
+        var userIds = allDoctors.Select(d => d.UserId).ToList();
+        var allUsers = (await _unitOfWork.Users.FindAsync(u => userIds.Contains(u.Id))).ToList();
+
+        var lines = allDoctors.Select((d, i) =>
         {
-            System.DayOfWeek.Monday => Domain.Enums.DayOfWeek.Lunes,
-            System.DayOfWeek.Tuesday => Domain.Enums.DayOfWeek.Martes,
-            System.DayOfWeek.Wednesday => Domain.Enums.DayOfWeek.Miercoles,
-            System.DayOfWeek.Thursday => Domain.Enums.DayOfWeek.Jueves,
-            System.DayOfWeek.Friday => Domain.Enums.DayOfWeek.Viernes,
-            _ => Domain.Enums.DayOfWeek.Lunes
-        };
-
-        var branchIds = (await _unitOfWork.Branches.FindAsync(
-            b => b.CompanyId == companyId)).Select(b => b.Id).ToList();
-
-        var availableHours = (await _unitOfWork.BusinessHours.FindAsync(
-            h => branchIds.Contains(h.BranchId) && h.DayOfWeek == dayOfWeekEsp && !h.IsClosed && h.DoctorId != null)).ToList();
-
-        if (availableHours.Count == 0)
-        {
-            var allDoctors = (await _unitOfWork.Doctors.FindAsync(d => d.CompanyId == companyId)).ToList();
-            if (allDoctors.Count == 0) return "";
-            var userIds = allDoctors.Select(d => d.UserId).ToList();
-            var allUsers = (await _unitOfWork.Users.FindAsync(u => userIds.Contains(u.Id))).ToList();
-            var lines = allDoctors.Select((d, i) =>
-            {
-                var u = allUsers.FirstOrDefault(x => x.Id == d.UserId);
-                return $"{i + 1}. *Dr(a). {u?.FirstName} {u?.LastName}* - {d.Specialty}";
-            });
-            return string.Join("\n", lines);
-        }
-
-        var doctorIds = availableHours.Select(h => h.DoctorId!.Value).Distinct().ToList();
-        var doctors = (await _unitOfWork.Doctors.FindAsync(
-            d => doctorIds.Contains(d.Id) && d.CompanyId == companyId)).ToList();
-
-        var users = (await _unitOfWork.Users.FindAsync(
-            u => doctors.Select(d => d.UserId).Contains(u.Id))).ToList();
-
-        var result = doctors.Select((d, i) =>
-        {
-            var u = users.FirstOrDefault(x => x.Id == d.UserId);
+            var u = allUsers.FirstOrDefault(x => x.Id == d.UserId);
             return $"{i + 1}. *Dr(a). {u?.FirstName} {u?.LastName}* - {d.Specialty}";
         });
 
-        return string.Join("\n", result);
+        return string.Join("\n", lines);
     }
 
     private async Task<string> GetBusinessHoursRange(Guid doctorId, DateTime date)
     {
-        var hours = (await _unitOfWork.BusinessHours.FindAsync(
-            h => h.BranchId != null && h.DoctorId == doctorId &&
-                 h.DayOfWeek == MapDayOfWeek(date.DayOfWeek) && !h.IsClosed)).ToList();
+        var branch = (await _unitOfWork.Branches.FindAsync(b => b.IsMain)).FirstOrDefault();
+        if (branch == null) return "";
 
-        if (hours.Count == 0)
-        {
-            hours = (await _unitOfWork.BusinessHours.FindAsync(
-                h => h.DoctorId == null && h.BranchId != null &&
-                     h.DayOfWeek == MapDayOfWeek(date.DayOfWeek) && !h.IsClosed)).ToList();
-        }
+        var schedule = (await _unitOfWork.BusinessSchedules.FindAsync(
+            s => s.BranchId == branch.Id && !s.IsDeleted)).FirstOrDefault();
+        if (schedule == null) return "";
 
-        if (hours.Count == 0) return "";
+        var dayOfWeekEsp = MapDayOfWeek(date.DayOfWeek);
+        var day = (await _unitOfWork.ScheduleDays.FindAsync(
+            d => d.BusinessScheduleId == schedule.Id && d.DayOfWeek == dayOfWeekEsp && !d.IsDeleted)).FirstOrDefault();
 
-        var openTime = hours.Min(h => h.OpenTime);
-        var closeTime = hours.Max(h => h.CloseTime);
+        if (day == null || !day.IsOpen) return "";
 
-        return $"📅 Horario disponible: *{FormatTime12(openTime)}* a *{FormatTime12(closeTime)}*\nPuedes elegir cualquier hora dentro de ese horario (ej: 2 de la tarde, 11 de la mañana, 3 PM, etc.)";
+        return $"📅 Horario disponible: *{FormatTime12(day.OpenTime)}* a *{FormatTime12(day.CloseTime)}*\nPuedes elegir cualquier hora dentro de ese horario (ej: 2 de la tarde, 11 de la mañana, 3 PM, etc.)";
     }
 
     private async Task<(bool available, string? error)> IsTimeSlotAvailable(Guid companyId, Guid doctorId, DateTime date, TimeSpan startTime, int durationMinutes)
     {
-        var hours = (await _unitOfWork.BusinessHours.FindAsync(
-            h => h.BranchId != null && h.DoctorId == doctorId &&
-                 h.DayOfWeek == MapDayOfWeek(date.DayOfWeek) && !h.IsClosed)).ToList();
+        var branch = (await _unitOfWork.Branches.FindAsync(
+            b => b.CompanyId == companyId && b.IsMain)).FirstOrDefault();
+        if (branch == null)
+            return (false, "No se encontró la sucursal.");
 
-        if (hours.Count == 0)
-        {
-            hours = (await _unitOfWork.BusinessHours.FindAsync(
-                h => h.DoctorId == null && h.BranchId != null &&
-                     h.DayOfWeek == MapDayOfWeek(date.DayOfWeek) && !h.IsClosed)).ToList();
-        }
+        var schedule = (await _unitOfWork.BusinessSchedules.FindAsync(
+            s => s.BranchId == branch.Id && !s.IsDeleted)).FirstOrDefault();
+        if (schedule == null)
+            return (false, "No hay horarios configurados.");
 
-        if (hours.Count == 0)
-            return (false, "No hay horarios de atención para ese doctor en esa fecha.");
+        var dayOfWeekEsp = MapDayOfWeek(date.DayOfWeek);
+        var day = (await _unitOfWork.ScheduleDays.FindAsync(
+            d => d.BusinessScheduleId == schedule.Id && d.DayOfWeek == dayOfWeekEsp && !d.IsDeleted)).FirstOrDefault();
 
-        var openTime = hours.Min(h => h.OpenTime);
-        var closeTime = hours.Max(h => h.CloseTime);
+        if (day == null || !day.IsOpen)
+            return (false, "No hay horarios de atención para ese día.");
+
+        var openTime = day.OpenTime;
+        var closeTime = day.CloseTime;
         var endTime = startTime.Add(TimeSpan.FromMinutes(durationMinutes));
 
         if (startTime < openTime || endTime > closeTime)
@@ -806,6 +794,29 @@ public class ChatbotService : IChatbotService
             var range = $"{FormatTime12(openTime)} a {FormatTime12(closeTime)}";
             var latestStart = FormatTime12(closeTime.Add(TimeSpan.FromMinutes(-durationMinutes)));
             return (false, $"La hora debe estar dentro del horario de atención: *{range}*.\nTu cita dura {durationMinutes} minutos, así que la hora de inicio debe ser como máximo *{latestStart}*.");
+        }
+
+        var breaks = (await _unitOfWork.BreakPeriods.FindAsync(
+            b => b.BusinessScheduleId == schedule.Id && !b.IsDeleted)).ToList();
+
+        foreach (var b in breaks)
+        {
+            if (startTime < b.EndTime && endTime > b.StartTime)
+            {
+                return (false, $"⚠️ En ese horario hay un descanso (*{b.Name}*) de {FormatTime12(b.StartTime)} a {FormatTime12(b.EndTime)}. Por favor, elige otra hora.");
+            }
+        }
+
+        var lunch = (await _unitOfWork.LunchConfigs.FindAsync(
+            l => l.BusinessScheduleId == schedule.Id && !l.IsDeleted)).FirstOrDefault();
+
+        if (lunch != null)
+        {
+            var lunchEnd = lunch.EndTime;
+            if (startTime < lunchEnd && endTime > lunch.StartTime)
+            {
+                return (false, $"⚠️ En ese horario es la hora de comer ({FormatTime12(lunch.StartTime)} a {FormatTime12(lunchEnd)}). Por favor, elige otra hora.");
+            }
         }
 
         var existingAppointments = (await _unitOfWork.Appointments.FindAsync(

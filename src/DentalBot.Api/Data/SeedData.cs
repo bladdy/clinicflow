@@ -134,23 +134,33 @@ public static class SeedData
             context.Doctors.AddRange(doctor1, doctor2);
             await context.SaveChangesAsync();
 
-            var businessHours = new List<BusinessHour>();
-            foreach (var doc in new[] { doctor1, doctor2 })
+            var schedule = new BusinessSchedule
             {
-                foreach (var day in new[] {
-                    Domain.Enums.DayOfWeek.Lunes, Domain.Enums.DayOfWeek.Martes,
-                    Domain.Enums.DayOfWeek.Miercoles, Domain.Enums.DayOfWeek.Jueves,
-                    Domain.Enums.DayOfWeek.Viernes })
-                {
-                    businessHours.Add(new BusinessHour
-                    {
-                        Id = Guid.NewGuid(), BranchId = branch.Id, DoctorId = doc.Id,
-                        DayOfWeek = day, OpenTime = new TimeSpan(9, 0, 0),
-                        CloseTime = new TimeSpan(17, 0, 0), IsClosed = false
-                    });
-                }
-            }
-            context.BusinessHours.AddRange(businessHours);
+                Id = Guid.NewGuid(),
+                BranchId = branch.Id
+            };
+            context.BusinessSchedules.Add(schedule);
+            await context.SaveChangesAsync();
+
+            var scheduleDays = Enum.GetValues<Domain.Enums.DayOfWeek>().Select(dow => new ScheduleDay
+            {
+                Id = Guid.NewGuid(),
+                BusinessScheduleId = schedule.Id,
+                DayOfWeek = dow,
+                IsOpen = dow <= Domain.Enums.DayOfWeek.Viernes,
+                OpenTime = new TimeSpan(9, 0, 0),
+                CloseTime = new TimeSpan(17, 0, 0)
+            }).ToList();
+            context.ScheduleDays.AddRange(scheduleDays);
+
+            var lunch = new LunchConfig
+            {
+                Id = Guid.NewGuid(),
+                BusinessScheduleId = schedule.Id,
+                DurationMinutes = 45,
+                StartTime = new TimeSpan(13, 0, 0)
+            };
+            context.LunchConfigs.Add(lunch);
             await context.SaveChangesAsync();
         }
     }

@@ -171,12 +171,21 @@ public class AppointmentsController : ControllerBase
     [HttpGet("available-slots")]
     public async Task<ActionResult<ApiResponse<List<AvailableSlotDto>>>> GetAvailableSlots([FromQuery] Guid doctorId, [FromQuery] DateTime date, [FromQuery] Guid? excludeAppointmentId)
     {
-        var dayOfWeek = (DentalBot.Domain.Enums.DayOfWeek)(int)date.DayOfWeek;
+        var dayOfWeekEsp = (DentalBot.Domain.Enums.DayOfWeek)(int)date.DayOfWeek;
 
-        var businessHours = (await _unitOfWork.BusinessHours.FindAsync(
-            bh => bh.DoctorId == doctorId && bh.DayOfWeek == dayOfWeek && !bh.IsDeleted)).FirstOrDefault();
+        var branch = (await _unitOfWork.Branches.FindAsync(b => b.IsMain)).FirstOrDefault();
+        if (branch == null)
+            return Ok(ApiResponse<List<AvailableSlotDto>>.Ok(new List<AvailableSlotDto>()));
 
-        if (businessHours == null || businessHours.IsClosed)
+        var schedule = (await _unitOfWork.BusinessSchedules.FindAsync(
+            s => s.BranchId == branch.Id && !s.IsDeleted)).FirstOrDefault();
+        if (schedule == null)
+            return Ok(ApiResponse<List<AvailableSlotDto>>.Ok(new List<AvailableSlotDto>()));
+
+        var day = (await _unitOfWork.ScheduleDays.FindAsync(
+            d => d.BusinessScheduleId == schedule.Id && d.DayOfWeek == dayOfWeekEsp && !d.IsDeleted)).FirstOrDefault();
+
+        if (day == null || !day.IsOpen)
             return Ok(ApiResponse<List<AvailableSlotDto>>.Ok(new List<AvailableSlotDto>()));
 
         var existingAppointments = await _unitOfWork.Appointments.FindAsync(
@@ -186,21 +195,29 @@ public class AppointmentsController : ControllerBase
                  a.Status != AppointmentStatus.NoShow &&
                  (!excludeAppointmentId.HasValue || a.Id != excludeAppointmentId.Value));
 
+        var breaks = (await _unitOfWork.BreakPeriods.FindAsync(
+            b => b.BusinessScheduleId == schedule.Id && !b.IsDeleted)).ToList();
+        var lunch = (await _unitOfWork.LunchConfigs.FindAsync(
+            l => l.BusinessScheduleId == schedule.Id && !l.IsDeleted)).FirstOrDefault();
+
         var slots = new List<AvailableSlotDto>();
-        var current = businessHours.OpenTime;
+        var current = day.OpenTime;
         var slotDuration = TimeSpan.FromMinutes(30);
 
-        while (current + slotDuration <= businessHours.CloseTime)
+        while (current + slotDuration <= day.CloseTime)
         {
             var end = current + slotDuration;
             var isBooked = existingAppointments.Any(a =>
                 a.StartTime < end && a.EndTime > current);
 
+            var inBreak = breaks.Any(b => current < b.EndTime && end > b.StartTime);
+            var inLunch = lunch != null && current < lunch.EndTime && end > lunch.StartTime;
+
             slots.Add(new AvailableSlotDto
             {
                 StartTime = current.ToString(@"hh\:mm"),
                 EndTime = end.ToString(@"hh\:mm"),
-                IsAvailable = !isBooked
+                IsAvailable = !isBooked && !inBreak && !inLunch
             });
 
             current = end;

@@ -206,3 +206,37 @@ export interface PaginationParams {
   page: number;
   pageSize: number;
 }
+
+export interface BusinessSchedule {
+  id: string;
+  branchId: string;
+  days: ScheduleDay[];
+  breaks: BreakPeriod[];
+  lunchConfig: LunchConfig | null;
+  totalProductiveMinutes: number;
+}
+
+export interface ScheduleDay {
+  id: string;
+  dayOfWeek: number;
+  dayName: string;
+  isOpen: boolean;
+  openTime: string;
+  closeTime: string;
+}
+
+export interface BreakPeriod {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  sortOrder: number;
+}
+
+export interface LunchConfig {
+  id: string;
+  durationMinutes: number;
+  startTime: string;
+  endTime: string;
+}

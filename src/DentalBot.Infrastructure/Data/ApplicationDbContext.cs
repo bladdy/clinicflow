@@ -19,7 +19,10 @@ public class ApplicationDbContext : DbContext
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<KnowledgeArticle> KnowledgeArticles => Set<KnowledgeArticle>();
-    public DbSet<BusinessHour> BusinessHours => Set<BusinessHour>();
+    public DbSet<BusinessSchedule> BusinessSchedules => Set<BusinessSchedule>();
+    public DbSet<ScheduleDay> ScheduleDays => Set<ScheduleDay>();
+    public DbSet<BreakPeriod> BreakPeriods => Set<BreakPeriod>();
+    public DbSet<LunchConfig> LunchConfigs => Set<LunchConfig>();
     public DbSet<Holiday> Holidays => Set<Holiday>();
     public DbSet<AISettings> AISettings => Set<AISettings>();
     public DbSet<WhatsAppInstance> WhatsAppInstances => Set<WhatsAppInstance>();

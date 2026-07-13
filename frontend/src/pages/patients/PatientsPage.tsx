@@ -45,8 +45,18 @@ export function PatientsPage() {
     resolver: zodResolver(patientSchema),
   });
 
+  const sanitize = (data: PatientFormData) => ({
+    ...data,
+    email: data.email || undefined,
+    dateOfBirth: data.dateOfBirth || undefined,
+    gender: data.gender || undefined,
+    address: data.address || undefined,
+    notes: data.notes || undefined,
+    medicalHistory: data.medicalHistory || undefined,
+  });
+
   const handleCreate = async (formData: PatientFormData) => {
-    await createMutation.mutateAsync(formData);
+    await createMutation.mutateAsync(sanitize(formData));
     setShowCreateModal(false);
     createForm.reset();
   };
@@ -69,7 +79,7 @@ export function PatientsPage() {
 
   const handleUpdate = async (formData: PatientFormData) => {
     if (!editingPatient) return;
-    await updateMutation.mutateAsync({ id: editingPatient.id, data: formData });
+    await updateMutation.mutateAsync({ id: editingPatient.id, data: sanitize(formData) });
     setShowEditModal(false);
     setEditingPatient(null);
   };

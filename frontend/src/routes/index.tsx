@@ -17,6 +17,7 @@ import { ReportsPage } from '../pages/reports/ReportsPage';
 import { SubscriptionPage } from '../pages/subscription/SubscriptionPage';
 import { SuperAdminPage } from '../pages/admin/SuperAdminPage';
 import { DoctorsPage } from '../pages/doctors/DoctorsPage';
+import { BusinessHoursPage } from '../pages/business-hours/WorkingHoursPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -49,6 +50,7 @@ export function AppRouter() {
             <Route path="settings/whatsapp" element={<WhatsAppSettingsPage />} />
             <Route path="settings/ai" element={<AISettingsPage />} />
             <Route path="settings/knowledge" element={<KnowledgeBasePage />} />
+            <Route path="settings/business-hours" element={<BusinessHoursPage />} />
             <Route path="subscription" element={<SubscriptionPage />} />
             <Route path="admin" element={<SuperAdminPage />} />
           </Route>

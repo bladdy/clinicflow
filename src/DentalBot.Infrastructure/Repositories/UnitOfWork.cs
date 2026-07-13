@@ -18,7 +18,10 @@ public class UnitOfWork : IUnitOfWork
     private IGenericRepository<Conversation>? _conversations;
     private IGenericRepository<Message>? _messages;
     private IGenericRepository<KnowledgeArticle>? _knowledgeArticles;
-    private IGenericRepository<BusinessHour>? _businessHours;
+    private IGenericRepository<BusinessSchedule>? _businessSchedules;
+    private IGenericRepository<ScheduleDay>? _scheduleDays;
+    private IGenericRepository<BreakPeriod>? _breakPeriods;
+    private IGenericRepository<LunchConfig>? _lunchConfigs;
     private IGenericRepository<Holiday>? _holidays;
     private IGenericRepository<AISettings>? _aiSettings;
     private IGenericRepository<WhatsAppInstance>? _whatsAppInstances;
@@ -39,7 +42,10 @@ public class UnitOfWork : IUnitOfWork
     public IGenericRepository<Conversation> Conversations => _conversations ??= new GenericRepository<Conversation>(_context);
     public IGenericRepository<Message> Messages => _messages ??= new GenericRepository<Message>(_context);
     public IGenericRepository<KnowledgeArticle> KnowledgeArticles => _knowledgeArticles ??= new GenericRepository<KnowledgeArticle>(_context);
-    public IGenericRepository<BusinessHour> BusinessHours => _businessHours ??= new GenericRepository<BusinessHour>(_context);
+    public IGenericRepository<BusinessSchedule> BusinessSchedules => _businessSchedules ??= new GenericRepository<BusinessSchedule>(_context);
+    public IGenericRepository<ScheduleDay> ScheduleDays => _scheduleDays ??= new GenericRepository<ScheduleDay>(_context);
+    public IGenericRepository<BreakPeriod> BreakPeriods => _breakPeriods ??= new GenericRepository<BreakPeriod>(_context);
+    public IGenericRepository<LunchConfig> LunchConfigs => _lunchConfigs ??= new GenericRepository<LunchConfig>(_context);
     public IGenericRepository<Holiday> Holidays => _holidays ??= new GenericRepository<Holiday>(_context);
     public IGenericRepository<AISettings> AISettings => _aiSettings ??= new GenericRepository<AISettings>(_context);
     public IGenericRepository<WhatsAppInstance> WhatsAppInstances => _whatsAppInstances ??= new GenericRepository<WhatsAppInstance>(_context);
