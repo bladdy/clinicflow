@@ -352,7 +352,7 @@ public class ChatbotService : IChatbotService
         state.Phase = "selecting_time";
         SaveState(conversation, state);
 
-        var hoursRange = await GetBusinessHoursRange(selected.Id, state.SelectedDate!.Value);
+        var hoursRange = await GetBusinessHoursRange(companyId, state.SelectedDate!.Value);
         if (string.IsNullOrEmpty(hoursRange))
         {
             state.Phase = "selecting_date";
